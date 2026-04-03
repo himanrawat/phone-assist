@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { db } from '../../config/database.js';
-import { providerConfig, tenants } from '../../db/schema.js';
+import { tenants } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { providerConfigService } from '../../services/provider/provider-config.service.js';
 
 const updateGlobalProviderSchema = z.object({
   telephonyProvider: z.literal('twilio').optional(),
@@ -20,16 +21,7 @@ export async function providerRoutes(fastify: FastifyInstance) {
    * Get current global provider configuration
    */
   fastify.get('/api/v1/admin/providers', async (_request, reply) => {
-    const configs = await db.select().from(providerConfig);
-
-    const result: Record<string, string> = {};
-    for (const c of configs) {
-      result[c.key] = c.key === 'telephony' ? 'twilio' : c.provider;
-    }
-
-    result.telephony ??= 'twilio';
-
-    reply.send({ data: result });
+    reply.send({ data: providerConfigService.getGlobalConfig() });
   });
 
   /**
@@ -39,34 +31,15 @@ export async function providerRoutes(fastify: FastifyInstance) {
   fastify.put('/api/v1/admin/providers', async (request, reply) => {
     const body = updateGlobalProviderSchema.parse(request.body);
 
-    const updates: Promise<unknown>[] = [];
-
-    if (body.telephonyProvider) {
-      updates.push(
-        db
-          .insert(providerConfig)
-          .values({ key: 'telephony', provider: body.telephonyProvider })
-          .onConflictDoUpdate({
-            target: providerConfig.key,
-            set: { provider: body.telephonyProvider, updatedAt: new Date() },
-          })
-      );
+    if (body.sttProvider === 'groq') {
+      reply.status(400).send({
+        error: 'Groq Whisper is not supported for real-time Twilio calls yet. Use Deepgram.',
+      });
+      return;
     }
 
-    if (body.sttProvider) {
-      updates.push(
-        db
-          .insert(providerConfig)
-          .values({ key: 'stt', provider: body.sttProvider })
-          .onConflictDoUpdate({
-            target: providerConfig.key,
-            set: { provider: body.sttProvider, updatedAt: new Date() },
-          })
-      );
-    }
-
-    await Promise.all(updates);
-    reply.send({ success: true });
+    const data = await providerConfigService.updateGlobalConfig(body);
+    reply.send({ success: true, data });
   });
 
   /**
@@ -77,6 +50,13 @@ export async function providerRoutes(fastify: FastifyInstance) {
   fastify.put('/api/v1/admin/tenants/:tenantId/providers', async (request, reply) => {
     const { tenantId } = request.params as { tenantId: string };
     const body = updateTenantProviderSchema.parse(request.body);
+
+    if (body.sttProvider === 'groq') {
+      reply.status(400).send({
+        error: 'Groq Whisper is not supported for real-time Twilio calls yet. Use Deepgram.',
+      });
+      return;
+    }
 
     const updates: Record<string, unknown> = {};
     if (body.telephonyProvider !== undefined) {

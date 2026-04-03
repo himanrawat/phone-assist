@@ -9,7 +9,9 @@ import { twilioWebhookRoutes } from './routes/webhooks/twilio.webhook.js';
 import { callStreamWebSocket } from './routes/webhooks/call-stream.ws.js';
 import { callRoutes } from './routes/calls/calls.routes.js';
 import { providerRoutes } from './routes/admin/provider.routes.js';
+import { brandRoutes } from './routes/admin/brand.routes.js';
 import { startWorkers } from './queue/workers.js';
+import { providerConfigService } from './services/provider/provider-config.service.js';
 
 async function buildServer() {
   const fastify = Fastify({
@@ -25,6 +27,8 @@ async function buildServer() {
   await fastify.register(fastifyWebSocket);
   await fastify.register(fastifyCors, {
     origin: env.NODE_ENV === 'development' ? true : [],
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
   await fastify.register(fastifyHelmet, {
     contentSecurityPolicy: false, // Disable for development
@@ -49,11 +53,14 @@ async function buildServer() {
     environment: env.NODE_ENV,
   }));
 
+  await providerConfigService.load();
+
   // Register routes
   await fastify.register(twilioWebhookRoutes);
   await fastify.register(callStreamWebSocket);
   await fastify.register(callRoutes);
   await fastify.register(providerRoutes);
+  await fastify.register(brandRoutes);
 
   return fastify;
 }
@@ -63,11 +70,12 @@ const server = await buildServer();
 try {
   startWorkers();
   await server.listen({ port: env.PORT, host: env.HOST });
+  const globalProviders = providerConfigService.getGlobalConfig();
   console.log(`\nServer running at http://${env.HOST}:${env.PORT}`);
-  console.log(`Telephony: ${env.TELEPHONY_PROVIDER}`);
-  console.log(`STT: ${env.STT_PROVIDER}`);
-  console.log(`TTS: ${env.TTS_PROVIDER}`);
-  console.log(`LLM: ${env.LLM_PROVIDER}\n`);
+  console.log(`Telephony: ${globalProviders.telephony}`);
+  console.log(`STT: ${globalProviders.stt}`);
+  console.log(`TTS: ${globalProviders.tts}`);
+  console.log(`LLM: ${globalProviders.llm}\n`);
 } catch (err) {
   server.log.error(err);
   process.exit(1);

@@ -21,8 +21,9 @@ export default function AIConfigPage() {
 
   const [stt, setStt] = useState<string>("");
 
-  // Sync state when data loads
-  const currentStt = stt || data?.data?.stt || "deepgram";
+  const configuredStt = data?.data?.stt;
+  const hasUnsupportedConfiguredStt = configuredStt === "groq";
+  const currentStt = stt || (hasUnsupportedConfiguredStt ? "deepgram" : configuredStt) || "deepgram";
 
   function handleSave() {
     mutation.mutate({
@@ -69,8 +70,14 @@ export default function AIConfigPage() {
             Speech-to-Text Provider
           </h2>
           <p className="text-sm text-gray-500 mb-4">
-            Converts caller speech to text. Affects latency and accuracy.
+            Converts caller speech to text. For live Twilio calls, Deepgram is the supported option right now.
           </p>
+          {hasUnsupportedConfiguredStt && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              Groq Whisper was previously selected, but it is not supported for real-time Twilio calls yet.
+              Saving this form will switch live calls back to Deepgram.
+            </div>
+          )}
           <div className="flex gap-4">
             <ProviderOption
               name="Deepgram Nova-3"
@@ -81,10 +88,11 @@ export default function AIConfigPage() {
             />
             <ProviderOption
               name="Groq Whisper"
-              description="Chunk-based, +200ms latency, 8.4% WER"
+              description="Coming later for uploads and batch transcription, not live Twilio calls"
               cost="~$17/10k calls"
-              selected={currentStt === "groq"}
-              onSelect={() => setStt("groq")}
+              selected={false}
+              disabled
+              onSelect={() => {}}
             />
           </div>
         </div>
@@ -138,19 +146,24 @@ function ProviderOption({
   description,
   cost,
   selected,
+  disabled = false,
   onSelect,
 }: Readonly<{
   name: string;
   description: string;
   cost: string;
   selected: boolean;
+  disabled?: boolean;
   onSelect: () => void;
 }>) {
   return (
     <button
       onClick={onSelect}
+      disabled={disabled}
       className={`flex-1 rounded-lg border-2 p-4 text-left transition-colors ${
-        selected
+        disabled
+          ? "cursor-not-allowed border-gray-200 bg-gray-50 opacity-70"
+          : selected
           ? "border-blue-500 bg-blue-50"
           : "border-gray-200 bg-white hover:border-gray-300"
       }`}

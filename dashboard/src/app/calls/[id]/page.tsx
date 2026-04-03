@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { getCall } from "@/lib/api";
+import { getCall, resolveApiUrl } from "@/lib/api";
 
 export default function CallDetailPage() {
   const params = useParams();
@@ -109,7 +109,7 @@ export default function CallDetailPage() {
             Recording
           </h2>
           <audio controls className="w-full">
-            <source src={call.recordingUrl} type="audio/wav" />
+            <source src={resolveApiUrl(call.recordingUrl)} type="audio/wav" />
             Your browser does not support the audio element.
           </audio>
         </div>

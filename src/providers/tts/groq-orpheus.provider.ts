@@ -1,6 +1,17 @@
 import type { TTSProvider, TTSOptions } from '../../types/providers.js';
 import { env } from '../../config/env.js';
 
+const GROQ_ORPHEUS_ENGLISH_MODEL = 'canopylabs/orpheus-v1-english';
+const DEFAULT_ORPHEUS_VOICE = 'hannah';
+const SUPPORTED_ORPHEUS_VOICES = new Set([
+  'autumn',
+  'diana',
+  'hannah',
+  'austin',
+  'daniel',
+  'troy',
+]);
+
 export class GroqOrpheusProvider implements TTSProvider {
   readonly name = 'groq' as const;
 
@@ -8,10 +19,11 @@ export class GroqOrpheusProvider implements TTSProvider {
 
   async synthesize(options: TTSOptions): Promise<Buffer> {
     const body = {
-      model: 'playai-tts',
+      model: GROQ_ORPHEUS_ENGLISH_MODEL,
       input: options.text,
-      voice: options.voice || 'Arista-PlayAI',
-      response_format: 'wav',
+      voice: normalizeOrpheusVoice(options.voice),
+      response_format: options.responseFormat || 'wav',
+      sample_rate: options.sampleRate,
       speed: options.speed || 1.0,
     };
 
@@ -39,5 +51,25 @@ export class GroqOrpheusProvider implements TTSProvider {
     // When streaming becomes available, this will yield incremental chunks.
     const audio = await this.synthesize(options);
     yield audio;
+  }
+}
+
+function normalizeOrpheusVoice(voice?: string): string {
+  const normalizedVoice = voice?.trim().toLowerCase();
+
+  if (!normalizedVoice) {
+    return DEFAULT_ORPHEUS_VOICE;
+  }
+
+  if (SUPPORTED_ORPHEUS_VOICES.has(normalizedVoice)) {
+    return normalizedVoice;
+  }
+
+  switch (normalizedVoice) {
+    case 'arista-playai':
+    case 'tara':
+      return DEFAULT_ORPHEUS_VOICE;
+    default:
+      return DEFAULT_ORPHEUS_VOICE;
   }
 }

@@ -19,6 +19,8 @@ class DeepgramStream implements STTStream {
   private ws: WebSocket | null = null;
   private transcriptCallbacks: ((result: TranscriptResult) => void)[] = [];
   private errorCallbacks: ((error: Error) => void)[] = [];
+  private finalizedSegments: string[] = [];
+  private finalFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private apiKey: string,
@@ -36,7 +38,7 @@ class DeepgramStream implements STTStream {
       channels: '1',
       punctuate: 'true',
       interim_results: 'true',
-      endpointing: '200',
+      endpointing: String(this.options.endpointingMs || 100),
       vad_events: 'true',
     });
 
@@ -55,17 +57,11 @@ class DeepgramStream implements STTStream {
         const msg = JSON.parse(data.toString());
 
         if (msg.type === 'Results' && msg.channel?.alternatives?.[0]) {
-          const alt = msg.channel.alternatives[0];
-          const result: TranscriptResult = {
-            text: alt.transcript || '',
-            isFinal: msg.is_final === true,
-            confidence: alt.confidence || 0,
-            language: msg.channel?.detected_language,
-          };
+          this.handleResultsMessage(msg);
+        }
 
-          if (result.text) {
-            for (const cb of this.transcriptCallbacks) cb(result);
-          }
+        if (msg.type === 'UtteranceEnd') {
+          this.flushFinalTranscript();
         }
       } catch (err) {
         for (const cb of this.errorCallbacks) cb(err as Error);
@@ -96,6 +92,8 @@ class DeepgramStream implements STTStream {
   }
 
   close(): void {
+    this.clearFinalFlushTimer();
+
     if (this.ws) {
       // Send close frame to Deepgram
       if (this.ws.readyState === WebSocket.OPEN) {
@@ -104,5 +102,83 @@ class DeepgramStream implements STTStream {
       this.ws.close();
       this.ws = null;
     }
+  }
+
+  private handleResultsMessage(msg: {
+    is_final?: boolean;
+    speech_final?: boolean;
+    channel?: {
+      detected_language?: string;
+      alternatives?: Array<{ transcript?: string; confidence?: number }>;
+    };
+  }) {
+    const alt = msg.channel?.alternatives?.[0];
+    const text = alt?.transcript?.trim() || '';
+    const confidence = typeof alt?.confidence === 'number' ? alt.confidence : 0;
+    const language = msg.channel?.detected_language;
+
+    if (!text && !msg.is_final) {
+      return;
+    }
+
+    if (msg.is_final) {
+      if (text) {
+        this.finalizedSegments.push(text);
+      }
+
+      if (msg.speech_final) {
+        this.flushFinalTranscript(confidence, language);
+        return;
+      }
+
+      this.scheduleFinalTranscriptFlush(confidence, language);
+      return;
+    }
+
+    if (text) {
+      this.emitTranscript({
+        text,
+        isFinal: false,
+        confidence,
+        language,
+      });
+    }
+  }
+
+  private scheduleFinalTranscriptFlush(confidence: number, language?: string) {
+    this.clearFinalFlushTimer();
+    this.finalFlushTimer = setTimeout(() => {
+      this.finalFlushTimer = null;
+      this.flushFinalTranscript(confidence, language);
+    }, 200);
+  }
+
+  private clearFinalFlushTimer() {
+    if (this.finalFlushTimer) {
+      clearTimeout(this.finalFlushTimer);
+      this.finalFlushTimer = null;
+    }
+  }
+
+  private flushFinalTranscript(confidence = 0, language?: string) {
+    this.clearFinalFlushTimer();
+
+    const text = this.finalizedSegments.join(' ').trim();
+    this.finalizedSegments = [];
+
+    if (!text) {
+      return;
+    }
+
+    this.emitTranscript({
+      text,
+      isFinal: true,
+      confidence,
+      language,
+    });
+  }
+
+  private emitTranscript(result: TranscriptResult) {
+    for (const cb of this.transcriptCallbacks) cb(result);
   }
 }

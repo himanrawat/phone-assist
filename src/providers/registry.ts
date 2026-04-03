@@ -4,7 +4,7 @@ import type {
   TTSProvider,
   LLMProvider,
 } from '../types/providers.js';
-import { env } from '../config/env.js';
+import { providerConfigService } from '../services/provider/provider-config.service.js';
 
 // Provider implementations
 import { TwilioProvider } from './telephony/twilio.provider.js';
@@ -87,23 +87,28 @@ export interface TenantProviderOverrides {
 
 export const providerRegistry = {
   /** Get telephony provider for a tenant (falls back to global default) */
-  telephony(_overrides?: TenantProviderOverrides): TelephonyProvider {
-    return getTelephonyInstance(env.TELEPHONY_PROVIDER);
+  telephony(overrides?: TenantProviderOverrides): TelephonyProvider {
+    const { telephony } = providerConfigService.getGlobalConfig();
+    const name = overrides?.telephonyProvider || telephony;
+    return getTelephonyInstance(name);
   },
 
   /** Get STT provider for a tenant */
   stt(overrides?: TenantProviderOverrides): STTProvider {
-    const name = overrides?.sttProvider || env.STT_PROVIDER;
+    const { stt } = providerConfigService.getGlobalConfig();
+    const name = overrides?.sttProvider || stt;
     return getSTTInstance(name);
   },
 
   /** Get TTS provider (currently only Groq Orpheus) */
   tts(): TTSProvider {
-    return getTTSInstance(env.TTS_PROVIDER);
+    const { tts } = providerConfigService.getGlobalConfig();
+    return getTTSInstance(tts);
   },
 
   /** Get LLM provider (currently only Groq) */
   llm(): LLMProvider {
-    return getLLMInstance(env.LLM_PROVIDER);
+    const { llm } = providerConfigService.getGlobalConfig();
+    return getLLMInstance(llm);
   },
 };

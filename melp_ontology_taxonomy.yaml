@@ -1,0 +1,1156 @@
+meta:
+  name: Melp Ontology and Taxonomy
+  version: 1.0.0
+  purpose: >-
+    Canonical ontology and taxonomy for MelpApp to support dataset design,
+    retrieval indexing, intent routing, feature grounding, and structured output generation.
+  scope:
+    includes:
+      - product ontology
+      - domain entities
+      - module taxonomy
+      - AI capability taxonomy
+      - intent taxonomy
+      - workflow taxonomy
+      - content taxonomy
+      - identity and organization model
+      - pricing and packaging concepts
+      - trust, security, and compliance concepts
+      - output schemas and controlled vocabularies
+    excludes:
+      - implementation-specific API contracts
+      - volatile release-note details
+      - vendor pricing numbers that may change
+  design_principles:
+    - Prefer stable concepts over marketing copy.
+    - Separate product facts from positioning claims.
+    - Keep entities machine-readable and composable.
+    - Use controlled vocabularies where routing or analytics matters.
+    - Treat AI features as workflow-embedded capabilities, not standalone products.
+
+product:
+  id: product_melp
+  name: MelpApp
+  aliases:
+    - Melp
+    - MELP
+    - Melp App
+    - melp app
+  category:
+    primary: intelligent_workspace
+    secondary:
+      - collaboration_platform
+      - cross_organization_collaboration_platform
+      - communication_and_workflow_platform
+  positioning:
+    core_definition: >-
+      MelpApp is a cross-organization intelligent workspace that unifies messaging,
+      meetings, files, calendar coordination, and embedded AI workflows.
+    category_statement: >-
+      Melp is best described as a cross-organization intelligent workspace rather than
+      a single-organization chat or meeting tool.
+    differentiation_axes:
+      - cross_organization_first
+      - reduced_vendor_lock_in
+      - native_identity_support
+      - embedded_ai_in_workflows
+      - unified_communication_and_document_intelligence
+  value_propositions:
+    - Coordinate work across organizational boundaries.
+    - Communicate through messaging, calls, and meetings in one system.
+    - Centralize file access through Melp Drive and external drive integrations.
+    - Turn files, meetings, and conversations into summaries, translations, and drafts.
+    - Support multilingual collaboration through translation and transcription features.
+  anti_positioning:
+    - not_just_a_chat_app
+    - not_just_a_video_meeting_tool
+    - not_dependent_on_google_or_microsoft_identity
+    - not_ai_hype_first
+
+identity_model:
+  model_id: identity_model_melp
+  principles:
+    - native_identity_supported
+    - external_identity_optional
+    - organization_boundary_is_soft_for_collaboration
+    - users_may_interact_across_orgs
+  identity_types:
+    - native_melp_identity
+    - google_identity
+    - microsoft_identity
+  authentication_concepts:
+    - user_account
+    - login_method
+    - session
+    - access_control
+    - admin_role
+    - member_role
+    - guest_or_external_participant
+  vendor_lock_in:
+    level: reduced
+    explanation: >-
+      Google and Microsoft identity can be used as conveniences, but they are not mandatory
+      dependencies for collaboration in Melp.
+
+ontology:
+  top_level_domains:
+    - product
+    - identity_and_access
+    - organizations_and_network
+    - communication
+    - meetings
+    - content_and_files
+    - calendar_and_coordination
+    - ai_capabilities
+    - workflows_and_automation
+    - pricing_and_packaging
+    - trust_security_and_compliance
+    - analytics_and_observability
+
+entities:
+  actor_entities:
+    User:
+      id_pattern: user_*
+      definition: Human account holder using Melp.
+      attributes:
+        stable:
+          - user_id
+          - display_name
+          - primary_identity_type
+          - preferred_language
+          - timezone
+        relational:
+          - belongs_to_organizations
+          - participates_in_conversations
+          - attends_meetings
+          - owns_or_accesses_files
+          - has_network_connections
+          - has_roles
+      subclasses:
+        - InternalUser
+        - ExternalUser
+        - AdminUser
+        - GuestUser
+        - Interviewer
+        - Candidate
+    Organization:
+      id_pattern: org_*
+      definition: Logical organization or company context inside Melp.
+      attributes:
+        - organization_id
+        - organization_name
+        - organization_type
+        - domain_association
+        - member_count
+        - policy_set
+      subclasses:
+        - Company
+        - Team
+        - Department
+        - PartnerOrganization
+        - ClientOrganization
+        - VendorOrganization
+        - CommunityOrGroup
+    Team:
+      id_pattern: team_*
+      definition: Collaborative subgroup inside an organization.
+      attributes:
+        - team_id
+        - team_name
+        - organization_id
+        - members
+        - topics
+    Role:
+      id_pattern: role_*
+      definition: Access or responsibility type assigned to a user.
+      controlled_values:
+        - admin
+        - manager
+        - member
+        - external_collaborator
+        - interviewer
+        - candidate
+        - viewer
+        - editor
+
+  communication_entities:
+    Conversation:
+      id_pattern: conv_*
+      definition: Persistent communication thread.
+      attributes:
+        - conversation_id
+        - conversation_type
+        - participants
+        - messages
+        - topic
+        - language_profile
+      subclasses:
+        - DirectMessage
+        - GroupChat
+        - TeamTopic
+        - AnnouncementThread
+    Message:
+      id_pattern: msg_*
+      definition: Unit of written communication inside a conversation.
+      attributes:
+        - message_id
+        - sender_id
+        - conversation_id
+        - timestamp
+        - content
+        - content_type
+        - attachments
+        - language
+        - draft_origin
+      subclasses:
+        - TextMessage
+        - FileShareMessage
+        - SystemMessage
+        - DraftedMessage
+        - TranslatedMessage
+    Topic:
+      id_pattern: topic_*
+      definition: Named thematic thread under a team or group context.
+      examples:
+        - Work Report
+        - Meeting Details
+
+  meeting_entities:
+    Meeting:
+      id_pattern: meeting_*
+      definition: Scheduled or ad hoc audio or video collaboration session.
+      attributes:
+        - meeting_id
+        - meeting_title
+        - meeting_type
+        - participants
+        - start_time
+        - end_time
+        - transcript
+        - summary
+        - action_items
+      subclasses:
+        - AudioCall
+        - VideoCall
+        - InterviewSession
+        - ClientMeeting
+        - InternalMeeting
+        - AdHocCall
+    Transcript:
+      id_pattern: transcript_*
+      definition: Text rendering of spoken content from a meeting or call.
+      attributes:
+        - transcript_id
+        - source_meeting_id
+        - utterances
+        - language_profile
+        - timestamps
+        - speaker_labels
+    Utterance:
+      id_pattern: utt_*
+      definition: Atomic spoken segment in a transcript.
+      attributes:
+        - utterance_id
+        - speaker
+        - text
+        - start_timestamp
+        - end_timestamp
+        - confidence
+    ActionItem:
+      id_pattern: action_*
+      definition: Task inferred or captured from a meeting or document.
+      attributes:
+        - action_item_id
+        - task_text
+        - owner
+        - due_date
+        - status
+        - source_reference
+      controlled_values:
+        status:
+          - open
+          - in_progress
+          - blocked
+          - completed
+          - unknown
+    Decision:
+      id_pattern: decision_*
+      definition: Explicit decision captured from a meeting or workflow.
+    ObservationEvent:
+      id_pattern: obs_*
+      definition: Behavioral or session event captured during evaluation mode.
+      subclasses:
+        - EyeGazeDeviationEvent
+        - TabSwitchEvent
+        - ScreenFocusChangeEvent
+
+  content_entities:
+    File:
+      id_pattern: file_*
+      definition: Stored or linked digital document inside Melp Drive or attached in Melp.
+      attributes:
+        - file_id
+        - file_name
+        - mime_type
+        - source_system
+        - owner
+        - language
+        - file_size
+        - access_permissions
+      subclasses:
+        - Document
+        - Presentation
+        - Spreadsheet
+        - PDF
+        - Image
+        - AudioFile
+        - VideoFile
+    Document:
+      id_pattern: doc_*
+      definition: Structured file containing readable business content.
+      attributes:
+        - document_type
+        - extracted_text
+        - summary
+        - translated_versions
+      subclasses:
+        - Contract
+        - Proposal
+        - Report
+        - Resume
+        - JobDescription
+        - PolicyDocument
+        - Invoice
+        - Notes
+    FileVersion:
+      id_pattern: filever_*
+      definition: Versioned variant of a file.
+      subclasses:
+        - OriginalVersion
+        - TranslatedVersion
+        - RevisedVersion
+        - AnnotatedVersion
+    FileReference:
+      id_pattern: fileref_*
+      definition: Pointer to a file from a conversation, meeting, or drive integration.
+
+  coordination_entities:
+    CalendarEvent:
+      id_pattern: cal_*
+      definition: Scheduled event or appointment.
+      subclasses:
+        - MeetingEvent
+        - Appointment
+        - InterviewSlot
+        - ReminderEvent
+    AvailabilitySlot:
+      id_pattern: slot_*
+      definition: Time availability window used for scheduling.
+    NetworkConnection:
+      id_pattern: conn_*
+      definition: Relationship between users in Melp's network graph.
+
+  ai_entities:
+    AICapability:
+      id_pattern: ai_*
+      definition: Embedded AI workflow capability available in Melp.
+    SummaryArtifact:
+      id_pattern: summary_*
+      definition: AI-generated summary grounded in a source document, transcript, or conversation.
+    TranslationArtifact:
+      id_pattern: translation_*
+      definition: AI-generated translation output for text, file, or speech.
+    DraftArtifact:
+      id_pattern: draft_*
+      definition: AI-generated or AI-rewritten message content.
+    QuestionSet:
+      id_pattern: qset_*
+      definition: AI-generated interview or review question collection.
+    QAPair:
+      id_pattern: qa_*
+      definition: A grounded question-answer pair associated with a document or context.
+
+modules:
+  canonical_modules:
+    messaging:
+      definition: Messaging and thread-based communication within and across organizations.
+      primary_entities:
+        - Conversation
+        - Message
+        - Topic
+      capabilities:
+        - direct_messaging
+        - group_chat
+        - team_topics
+        - file_sharing
+        - draft_for_me
+        - real_time_translation_in_chat
+        - file_summary_from_chat
+    meetings:
+      definition: Audio/video calling and meeting collaboration.
+      primary_entities:
+        - Meeting
+        - Transcript
+        - ActionItem
+        - Decision
+      capabilities:
+        - audio_calls
+        - video_calls
+        - live_transcription
+        - meeting_summary
+        - speech_to_speech_translation
+        - evaluation_mode
+    melp_drive:
+      definition: File storage, access, integration, and document intelligence layer.
+      primary_entities:
+        - File
+        - Document
+        - FileVersion
+        - FileReference
+      capabilities:
+        - upload_and_access_files
+        - integrate_external_drives
+        - file_translation
+        - file_summary
+        - document_qa
+        - versioned_translated_outputs
+    smart_calendar:
+      definition: Scheduling and meeting coordination functionality.
+      primary_entities:
+        - CalendarEvent
+        - AvailabilitySlot
+        - Meeting
+      capabilities:
+        - schedule_meetings
+        - arrange_appointments
+        - coordinate_availability
+    network:
+      definition: User and connection graph for inviting and discovering collaborators.
+      primary_entities:
+        - User
+        - NetworkConnection
+        - Organization
+      capabilities:
+        - invite_users
+        - view_connections
+        - expand_collaboration_network
+
+integrations:
+  integration_taxonomy:
+    identity_integrations:
+      - google_identity
+      - microsoft_identity
+    file_integrations:
+      - google_drive
+      - microsoft_onedrive
+    collaboration_integrations:
+      - native_melp_modules
+  integration_properties:
+    dimensions:
+      - optional
+      - convenience_layer
+      - not_core_dependency
+      - access_unification
+
+ai_capabilities:
+  design_principle: >-
+    AI in Melp is workflow-embedded. Capabilities act on messages, meetings, files,
+    and evaluation sessions rather than existing as an isolated generic assistant.
+  capability_taxonomy:
+    language_intelligence:
+      definition: AI that translates or transforms language across text, speech, and files.
+      capabilities:
+        file_translation:
+          id: ai_file_translation
+          module: melp_drive
+          inputs:
+            required:
+              - source_document
+              - target_language
+            optional:
+              - source_language
+              - preserve_formatting
+              - tone_preference
+          outputs:
+            - translated_document
+            - translation_status
+            - translated_file_reference
+          constraints:
+            - preserve_meaning
+            - do_not_invent_missing_text
+            - surface_failures_for_unreadable_content
+        chat_translation:
+          id: ai_chat_translation
+          module: messaging
+          inputs:
+            required:
+              - message_content
+              - target_language_or_user_language
+          outputs:
+            - translated_message_view
+          constraints:
+            - preserve_message_intent
+            - support_multilingual_collaboration
+        speech_to_speech_translation:
+          id: ai_speech_to_speech_translation
+          module: meetings
+          inputs:
+            required:
+              - speech_stream
+              - target_language
+          outputs:
+            - translated_speech_output
+            - optional_transcript
+          constraints:
+            - low_latency_preferred
+            - preserve_speaker_intent
+
+    content_understanding:
+      definition: AI that summarizes, answers questions, and extracts useful structure from content.
+      capabilities:
+        file_summary:
+          id: ai_file_summary
+          module: melp_drive
+          inputs:
+            required:
+              - document
+            optional:
+              - summary_length
+              - output_language
+          outputs:
+            - summary
+            - key_points
+            - risks
+            - next_steps
+          constraints:
+            - grounded_in_document
+            - no_hallucinated_sections
+        document_qa:
+          id: ai_document_qa
+          module: melp_drive
+          inputs:
+            required:
+              - document
+              - question
+          outputs:
+            - grounded_answer
+            - evidence_scope
+          constraints:
+            - answer_only_from_document_when_requested
+            - state_not_found_when_absent
+        meeting_summary:
+          id: ai_meeting_summary
+          module: meetings
+          inputs:
+            required:
+              - transcript_or_meeting_content
+            optional:
+              - output_language
+              - summary_style
+          outputs:
+            - meeting_overview
+            - key_discussion_points
+            - decisions
+            - action_items
+            - open_questions
+          constraints:
+            - do_not_invent_decisions
+            - mark_unknown_owner_if_owner_unclear
+        conversation_summary:
+          id: ai_conversation_summary
+          module: messaging
+          inputs:
+            required:
+              - conversation_context
+          outputs:
+            - summary
+            - pending_items
+
+    audio_intelligence:
+      definition: AI that transcribes or structures spoken audio.
+      capabilities:
+        live_transcription:
+          id: ai_live_transcription
+          module: meetings
+          inputs:
+            required:
+              - audio_stream
+            optional:
+              - language_hint
+              - speaker_separation
+          outputs:
+            - transcript_stream
+            - timestamps
+            - confidence_annotations
+          constraints:
+            - preserve_order
+            - mark_low_confidence_segments
+            - do_not_invent_speech
+
+    writing_intelligence:
+      definition: AI that rewrites, drafts, or structures user communications.
+      capabilities:
+        draft_for_me:
+          id: ai_draft_for_me
+          module: messaging
+          inputs:
+            required:
+              - source_message_or_intent
+            optional:
+              - tone
+              - length
+              - audience
+              - language
+          outputs:
+            - draft_text
+            - tone_used
+            - optional_variants
+          constraints:
+            - preserve_intended_meaning
+            - do_not_add_unrequested_commitments
+            - improve_clarity_and_structure
+
+    behavioral_intelligence:
+      definition: AI that observes session behavior in evaluation contexts and supports interview workflows.
+      capabilities:
+        evaluation_mode:
+          id: ai_evaluation_mode
+          module: meetings
+          inputs:
+            required:
+              - session_context
+              - observable_behavior_signals
+            optional:
+              - camera_signal
+              - tab_switch_signal
+              - screen_focus_signal
+              - job_description
+              - candidate_resume
+          outputs:
+            - observation_report
+            - event_timestamps
+            - generated_question_set
+          constraints:
+            - observational_not_psychological
+            - no_unsupported_cheating_claims
+            - no_discriminatory_conclusions
+        interview_question_generation:
+          id: ai_interview_question_generation
+          module: meetings
+          inputs:
+            required:
+              - job_description
+              - candidate_resume
+          outputs:
+            - tailored_question_set
+            - topical_coverage_map
+          constraints:
+            - align_questions_to_role_requirements
+            - align_questions_to_candidate_background
+
+feature_flags_and_availability:
+  availability_dimensions:
+    - enabled
+    - disabled
+    - plan_gated
+    - admin_controlled
+    - beta
+    - enterprise_only
+  performance_dimensions:
+    - real_time
+    - near_real_time
+    - async_processing
+  language_support_dimensions:
+    - monolingual
+    - multilingual
+    - cross_language
+
+intent_taxonomy:
+  intent_families:
+    product_information:
+      intents:
+        - describe_product
+        - describe_module
+        - explain_feature
+        - explain_ai_feature
+        - compare_with_competitor
+        - explain_differentiation
+        - explain_pricing
+    communication_tasks:
+      intents:
+        - send_message
+        - rewrite_message
+        - summarize_conversation
+        - translate_message
+        - share_file
+    file_tasks:
+      intents:
+        - summarize_file
+        - translate_file
+        - ask_question_about_file
+        - extract_key_points_from_file
+        - extract_action_items_from_file
+    meeting_tasks:
+      intents:
+        - start_call
+        - join_meeting
+        - transcribe_meeting
+        - summarize_meeting
+        - extract_decisions
+        - extract_action_items
+        - translate_speech
+    evaluation_tasks:
+      intents:
+        - start_evaluation_mode
+        - monitor_behavior_events
+        - generate_interview_questions
+        - review_evaluation_session
+    scheduling_tasks:
+      intents:
+        - schedule_meeting
+        - arrange_appointment
+        - check_availability
+    network_tasks:
+      intents:
+        - invite_connection
+        - view_connections
+        - collaborate_across_organization
+  intent_to_feature_mapping:
+    summarize_file: ai_file_summary
+    translate_file: ai_file_translation
+    ask_question_about_file: ai_document_qa
+    summarize_meeting: ai_meeting_summary
+    transcribe_meeting: ai_live_transcription
+    rewrite_message: ai_draft_for_me
+    translate_speech: ai_speech_to_speech_translation
+    monitor_behavior_events: ai_evaluation_mode
+    generate_interview_questions: ai_interview_question_generation
+
+content_taxonomy:
+  content_sources:
+    - message
+    - conversation
+    - meeting_audio
+    - meeting_transcript
+    - document
+    - uploaded_file
+    - integrated_drive_file
+    - calendar_event
+    - resume
+    - job_description
+  content_types:
+    text:
+      - chat_message
+      - document_text
+      - transcript_text
+      - draft_text
+      - translated_text
+      - summary_text
+    structured:
+      - action_item_list
+      - decision_list
+      - qa_pairs
+      - interview_question_set
+      - pricing_plan_record
+    media:
+      - audio
+      - video
+      - image
+      - screen_signal
+  document_taxonomy:
+    business_documents:
+      - contract
+      - proposal
+      - report
+      - invoice
+      - policy_document
+      - meeting_notes
+    hiring_documents:
+      - resume
+      - job_description
+      - interview_feedback
+    operational_documents:
+      - project_plan
+      - work_report
+      - status_update
+
+workflow_taxonomy:
+  core_workflows:
+    collaboration:
+      - communicate_in_threads
+      - share_and_discuss_files
+      - coordinate_across_orgs
+    document_intelligence:
+      - upload_document
+      - summarize_document
+      - translate_document
+      - ask_questions_about_document
+    meeting_intelligence:
+      - conduct_meeting
+      - transcribe_meeting
+      - summarize_meeting
+      - extract_actions_and_decisions
+    multilingual_workflows:
+      - translate_chat
+      - translate_file
+      - speech_to_speech_translation
+    interview_workflows:
+      - upload_resume_and_job_description
+      - generate_interview_questions
+      - run_evaluation_session
+      - review_observation_events
+    communication_assistance:
+      - draft_reply
+      - rewrite_in_selected_tone
+      - simplify_message
+  workflow_states:
+    generic_states:
+      - created
+      - in_progress
+      - completed
+      - failed
+      - partially_completed
+      - awaiting_input
+      - awaiting_review
+
+output_taxonomy:
+  user_visible_outputs:
+    - translated_document
+    - summary
+    - transcript
+    - message_draft
+    - question_set
+    - action_item_list
+    - decision_list
+    - observation_report
+  machine_structured_outputs:
+    summary_output:
+      required_fields:
+        - source_reference
+        - summary_text
+        - key_points
+      optional_fields:
+        - risks
+        - next_steps
+        - output_language
+    meeting_summary_output:
+      required_fields:
+        - meeting_reference
+        - overview
+        - key_discussion_points
+        - action_items
+      optional_fields:
+        - decisions
+        - open_questions
+        - participant_map
+    transcription_output:
+      required_fields:
+        - transcript_reference
+        - utterances
+      optional_fields:
+        - speaker_labels
+        - confidence_annotations
+        - language_segments
+    translation_output:
+      required_fields:
+        - source_language
+        - target_language
+        - status
+      optional_fields:
+        - output_reference
+        - formatting_preserved
+    draft_output:
+      required_fields:
+        - draft_text
+        - tone_used
+      optional_fields:
+        - alternatives
+    evaluation_output:
+      required_fields:
+        - session_reference
+        - observed_events
+      optional_fields:
+        - event_timestamps
+        - generated_questions
+        - review_notes
+
+controlled_vocabularies:
+  conversation_type:
+    - direct_message
+    - group_chat
+    - team_topic
+    - announcement_thread
+  meeting_type:
+    - internal_meeting
+    - client_meeting
+    - interview_session
+    - ad_hoc_call
+    - audio_call
+    - video_call
+  content_language_relation:
+    - same_language
+    - translated_from_source
+    - multilingual
+    - unknown
+  source_system:
+    - native_melp
+    - google_drive
+    - microsoft_onedrive
+    - uploaded_local_file
+    - imported_external_source
+  ai_processing_mode:
+    - real_time
+    - near_real_time
+    - batch
+    - on_demand
+  output_tone:
+    - professional
+    - casual
+    - friendly
+    - concise
+    - direct
+    - neutral
+    - source_preserving
+    - structured
+  confidence_level:
+    - high
+    - medium
+    - low
+    - unknown
+  observation_event_type:
+    - eye_gaze_deviation
+    - tab_switch
+    - screen_focus_change
+  plan_type:
+    - individual
+    - professional
+    - business
+    - enterprise
+    - custom
+
+pricing_and_packaging:
+  domain_definition: >-
+    Pricing and packaging concepts should be modeled as retrievable metadata rather than hard-coded truth
+    in behavior training, because plan details can change.
+  entities:
+    Plan:
+      definition: Commercial plan or tier offered to a user or organization.
+      attributes:
+        - plan_id
+        - plan_name
+        - audience
+        - billing_model
+        - user_limit
+        - feature_entitlements
+        - ai_entitlements
+        - support_level
+      subclasses:
+        - IndividualPlan
+        - ProfessionalPlan
+        - BusinessPlan
+        - EnterprisePlan
+        - CustomPlan
+    Entitlement:
+      definition: Capability or limit granted by a plan.
+      subclasses:
+        - ModuleEntitlement
+        - AIFeatureEntitlement
+        - UserLimitEntitlement
+        - StorageEntitlement
+        - SupportEntitlement
+  pricing_dimensions:
+    billing_models:
+      - monthly
+      - annual
+      - quote_based
+      - custom_contract
+    packaging_dimensions:
+      - seat_based
+      - organization_based
+      - usage_based
+      - ai_usage_gated
+      - feature_gated
+  guidance:
+    - Treat exact prices as retrieval data.
+    - Treat entitlement categories as ontology data.
+    - Separate collaboration entitlements from AI entitlements.
+
+trust_security_and_compliance:
+  trust_principles:
+    - enterprise_security
+    - access_control
+    - identity_flexibility
+    - data_handling_clarity
+    - operational_control
+  security_entities:
+    - access_policy
+    - permission_set
+    - admin_control
+    - audit_event
+  compliance_modeling_guidance:
+    - store compliance labels as metadata, not marketing claims
+    - only assert certifications that are source-backed
+
+analytics_and_observability:
+  measurable_objects:
+    - ai_usage_event
+    - feature_invocation
+    - summary_generated
+    - translation_generated
+    - transcription_session
+    - evaluation_event_logged
+  analytic_dimensions:
+    - feature_area
+    - user_role
+    - organization_type
+    - language
+    - content_type
+    - success_or_failure
+    - confidence_level
+
+competitor_taxonomy:
+  comparison_targets:
+    - Microsoft Teams
+    - Slack
+    - Google Workspace
+    - Zoom
+    - Notion
+    - Lark
+    - Element
+  comparison_dimensions:
+    - identity_dependency
+    - cross_organization_support
+    - messaging_capabilities
+    - meeting_capabilities
+    - file_layer
+    - embedded_ai_workflows
+    - vendor_lock_in_profile
+  safe_comparison_rule: >-
+    Comparisons should focus on grounded differentiation dimensions and avoid unsupported superiority claims.
+
+knowledge_graph_relations:
+  primary_relations:
+    - User BELONGS_TO Organization
+    - User MEMBER_OF Team
+    - User PARTICIPATES_IN Conversation
+    - User ATTENDS Meeting
+    - User OWNS File
+    - User CONNECTED_TO User
+    - Conversation CONTAINS Message
+    - Conversation HAS_TOPIC Topic
+    - Message REFERENCES File
+    - Meeting GENERATES Transcript
+    - Meeting GENERATES SummaryArtifact
+    - Meeting CONTAINS Decision
+    - Meeting CONTAINS ActionItem
+    - Document HAS_VERSION FileVersion
+    - Document GENERATES SummaryArtifact
+    - Document GENERATES TranslationArtifact
+    - Document SUPPORTS QAPair
+    - EvaluationSession GENERATES ObservationEvent
+    - JobDescription PAIRED_WITH Resume
+    - JobDescription AND Resume GENERATE QuestionSet
+    - Plan GRANTS Entitlement
+    - Entitlement ENABLES AICapability
+
+routing_and_annotation_guidance:
+  annotation_labels:
+    feature_area:
+      - messaging
+      - meetings
+      - melp_drive
+      - smart_calendar
+      - network
+      - ai_translation
+      - ai_summary
+      - ai_transcription
+      - ai_drafting
+      - ai_evaluation
+      - pricing
+      - security
+      - general
+    user_task_type:
+      - explain
+      - compare
+      - summarize
+      - translate
+      - transcribe
+      - draft
+      - extract
+      - schedule
+      - monitor
+      - generate_questions
+    grounding_source:
+      - product_knowledge
+      - document
+      - transcript
+      - conversation
+      - pricing_record
+      - policy_record
+  training_rules:
+    - Keep volatile pricing and release data in retrieval, not fine-tuning facts.
+    - Keep AI behavior grounded in source content whenever a source is provided.
+    - Represent evaluation outputs as observational evidence, not inferred intent.
+    - Keep Melp positioning focused on cross-organization collaboration and embedded intelligence.
+    - Prefer structured outputs in addition to natural language responses.
+
+dataset_building_recommendations:
+  pre_generation_use:
+    - use_as_label_dictionary
+    - use_as_schema_reference
+    - use_as_ground_truth_constraint_source
+    - use_for_intent_router_training
+    - use_for_rag_chunk_tagging
+  minimum_dataset_slices:
+    - product_knowledge_records
+    - feature_contract_records
+    - intent_routing_records
+    - conversation_examples
+    - structured_output_examples
+    - pricing_retrieval_records
+  recommended_chunk_tags:
+    - module
+    - entity_type
+    - ai_capability
+    - intent
+    - workflow
+    - audience
+    - language_support
+    - plan_relevance
+
+appendix:
+  canonical_feature_list:
+    - messaging
+    - group_chat
+    - team_topics
+    - audio_calls
+    - video_calls
+    - melp_drive
+    - google_drive_integration
+    - onedrive_integration
+    - smart_calendar
+    - network_connections
+    - file_translation
+    - file_summary
+    - document_qa
+    - meeting_summary
+    - live_transcription
+    - real_time_chat_translation
+    - speech_to_speech_translation
+    - draft_for_me
+    - evaluation_mode
+    - interview_question_generation
+  canonical_audiences:
+    - freelancer
+    - small_team
+    - business_team
+    - enterprise
+    - cross_organization_collaboration_group
+    - interviewer
+    - candidate
+    - admin
+  non_goals_for_generation:
+    - do_not_frame_melp_as_only_internal_team_chat
+    - do_not_frame_ai_as_standalone_without_workflow_context
+    - do_not_hardcode_exact_prices_into_behavior_data
+    - do_not_make_unverified_security_or_accuracy_claims

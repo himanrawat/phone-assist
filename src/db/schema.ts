@@ -132,7 +132,7 @@ export const aiAssistants = pgTable('ai_assistants', {
     'Thank you for calling. We are currently closed. Please call back during business hours.'
   ),
   systemPrompt: text('system_prompt'),
-  voiceId: varchar('voice_id', { length: 100 }).notNull().default('tara'),
+  voiceId: varchar('voice_id', { length: 100 }).notNull().default('hannah'),
   maxCallDurationSec: integer('max_call_duration_sec').notNull().default(600),
   primaryLanguage: varchar('primary_language', { length: 10 }).notNull().default('en'),
   multilingualEnabled: boolean('multilingual_enabled').notNull().default(false),
@@ -220,6 +220,77 @@ export const callMessages = pgTable(
     index('call_messages_call_idx').on(table.callId),
   ]
 );
+
+// ─── Brand Profile ───
+
+export const brandProfiles = pgTable('brand_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .notNull()
+    .references(() => tenants.id, { onDelete: 'cascade' })
+    .unique(),
+
+  // Business identity
+  businessName: varchar('business_name', { length: 255 }).notNull(),
+  tagline: varchar('tagline', { length: 500 }),
+  industry: varchar('industry', { length: 100 }),
+  description: text('description'), // What the business does
+  website: varchar('website', { length: 500 }),
+  email: varchar('email', { length: 255 }),
+  phone: varchar('phone', { length: 20 }),
+
+  // Location
+  addresses: jsonb('addresses').$type<{
+    label: string;
+    address: string;
+    phone?: string;
+  }[]>().default([]),
+
+  // Services / Products
+  services: jsonb('services').$type<{
+    name: string;
+    description: string;
+    price?: string;
+    duration?: string;
+  }[]>().default([]),
+
+  // Policies
+  policies: jsonb('policies').$type<{
+    title: string;
+    content: string;
+  }[]>().default([]),
+
+  // FAQs
+  faqs: jsonb('faqs').$type<{
+    question: string;
+    answer: string;
+  }[]>().default([]),
+
+  // Staff directory
+  staff: jsonb('staff').$type<{
+    name: string;
+    role: string;
+    department?: string;
+    specialty?: string;
+  }[]>().default([]),
+
+  // Brand voice
+  brandVoice: jsonb('brand_voice').$type<{
+    toneKeywords: string[];       // e.g. ["professional", "empathetic", "warm"]
+    wordsToUse: string[];         // preferred vocabulary
+    wordsToAvoid: string[];       // banned vocabulary
+    samplePhrases: string[];      // example phrases that match brand voice
+  }>().default({ toneKeywords: [], wordsToUse: [], wordsToAvoid: [], samplePhrases: [] }),
+
+  // Escalation rules
+  escalationRules: jsonb('escalation_rules').$type<{
+    trigger: string;
+    action: string;
+  }[]>().default([]),
+
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
 
 // ─── Provider Config (Super Admin) ───
 

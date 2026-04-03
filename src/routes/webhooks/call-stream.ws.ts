@@ -9,6 +9,8 @@ import { VoicePipeline } from '../../services/call/voice-pipeline.js';
  * Protocol (Twilio Media Streams):
  * - 'connected': Stream is ready
  * - 'start': Stream metadata (callSid, streamSid, etc)
+ * - 'dtmf': Keypad input from the caller
+ * - 'mark': Playback completion marker for outbound audio
  * - 'media': Raw audio data (base64 encoded)
  * - 'stop': Stream ended
  */
@@ -32,7 +34,8 @@ export async function callStreamWebSocket(fastify: FastifyInstance) {
           case 'start': {
             // Stream started — extract metadata
             const start = message.start;
-            streamSid = start.streamSid;
+            const currentStreamSid = String(start.streamSid);
+            streamSid = currentStreamSid;
             const providerCallSid = start.callSid;
 
             console.log(`Stream started: streamSid=${streamSid}, callSid=${providerCallSid}`);
@@ -51,26 +54,19 @@ export async function callStreamWebSocket(fastify: FastifyInstance) {
             }
 
             // Start voice pipeline
-            pipeline = new VoicePipeline(socket, callState, streamSid!);
+            pipeline = new VoicePipeline(socket, callState, currentStreamSid, {
+              telephonyProvider: callState.telephonyProviderOverride ?? undefined,
+              sttProvider: callState.sttProviderOverride ?? undefined,
+            });
             pipeline.start();
 
             // Send initial greeting via TTS
-            const { providerRegistry } = await import('../../providers/registry.js');
             const assistantConfig = await callService.getAssistantConfig(callState.tenantId);
             if (assistantConfig?.greetingMessage) {
-              const tts = providerRegistry.tts();
-              const greetingAudio = await tts.synthesize({
-                text: assistantConfig.greetingMessage,
-                voice: assistantConfig.voiceId || 'Arista-PlayAI',
-              });
-
-              // Send greeting audio to caller
-              const payload = greetingAudio.toString('base64');
-              socket.send(JSON.stringify({
-                event: 'media',
-                streamSid,
-                media: { payload },
-              }));
+              await pipeline.playGreeting(
+                assistantConfig.greetingMessage,
+                assistantConfig.voiceId || 'hannah'
+              );
 
               // Add greeting to conversation history
               callState.conversationHistory.push({
@@ -78,6 +74,20 @@ export async function callStreamWebSocket(fastify: FastifyInstance) {
                 content: assistantConfig.greetingMessage,
               });
               await callService.setCallState(callId, callState);
+            }
+            break;
+          }
+
+          case 'mark': {
+            if (pipeline && message.mark?.name) {
+              pipeline.handlePlaybackMark(String(message.mark.name));
+            }
+            break;
+          }
+
+          case 'dtmf': {
+            if (pipeline && message.dtmf?.digit) {
+              await pipeline.handleDtmf(String(message.dtmf.digit));
             }
             break;
           }

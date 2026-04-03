@@ -55,6 +55,9 @@ export async function twilioWebhookRoutes(fastify: FastifyInstance) {
       return;
     }
 
+    // Fetch brand profile for rich business context
+    const brandProfile = await callService.getBrandProfile(tenant.id);
+
     // Build system prompt
     const systemPrompt = callService.buildSystemPrompt({
       personaName: assistantConfig?.personaName || 'Assistant',
@@ -62,6 +65,7 @@ export async function twilioWebhookRoutes(fastify: FastifyInstance) {
       systemPrompt: assistantConfig?.systemPrompt,
       contactName: contact.name,
       isVip: contact.isVip,
+      brand: brandProfile,
     });
 
     // Store call state in Redis
@@ -71,6 +75,8 @@ export async function twilioWebhookRoutes(fastify: FastifyInstance) {
       callerNumber,
       dialedNumber,
       provider: 'twilio',
+      telephonyProviderOverride: tenant.telephonyProvider,
+      sttProviderOverride: tenant.sttProvider,
       status: 'in_progress',
       conversationHistory: [],
       systemPrompt,

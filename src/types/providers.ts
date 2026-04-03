@@ -74,6 +74,7 @@ export interface STTStreamOptions {
   model?: string;
   sampleRate?: number;
   encoding?: string;
+  endpointingMs?: number;
 }
 
 export interface STTStream {
@@ -114,6 +115,8 @@ export interface TTSOptions {
   voice?: string;
   language?: string;
   speed?: number;
+  responseFormat?: 'wav' | 'mulaw';
+  sampleRate?: number;
 }
 
 // ─── LLM Provider ───

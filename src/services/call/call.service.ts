@@ -1,10 +1,9 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../../config/database.js';
 import { redis } from '../../config/redis.js';
-import { calls, callMessages, phoneNumbers, tenants, aiAssistants, contacts } from '../../db/schema.js';
+import { calls, callMessages, phoneNumbers, tenants, aiAssistants, contacts, brandProfiles } from '../../db/schema.js';
 import { providerRegistry } from '../../providers/registry.js';
 import type { LLMMessage } from '../../types/providers.js';
-import { v4 as uuidv4 } from 'uuid';
 import { postCallQueue } from '../../queue/workers.js';
 
 export interface CallState {
@@ -13,6 +12,8 @@ export interface CallState {
   callerNumber: string;
   dialedNumber: string;
   provider: 'twilio';
+  telephonyProviderOverride?: string | null;
+  sttProviderOverride?: string | null;
   status: 'ringing' | 'in_progress' | 'completed';
   conversationHistory: LLMMessage[];
   systemPrompt: string;
@@ -24,6 +25,10 @@ export interface CallState {
 }
 
 const CALL_STATE_TTL = 3600; // 1 hour
+const END_CALL_LOCK_TTL = 3600; // 1 hour
+const MAX_VOICE_HISTORY_MESSAGES = 8;
+const VOICE_LLM_MAX_TOKENS = 96;
+const VOICE_LLM_TEMPERATURE = 0.3;
 
 export const callService = {
   /**
@@ -57,6 +62,19 @@ export const callService = {
       .select()
       .from(aiAssistants)
       .where(eq(aiAssistants.tenantId, tenantId))
+      .limit(1);
+
+    return result[0] || null;
+  },
+
+  /**
+   * Get brand profile for a tenant.
+   */
+  async getBrandProfile(tenantId: string) {
+    const result = await db
+      .select()
+      .from(brandProfiles)
+      .where(eq(brandProfiles.tenantId, tenantId))
       .limit(1);
 
     return result[0] || null;
@@ -120,16 +138,106 @@ export const callService = {
     systemPrompt?: string | null;
     contactName?: string | null;
     isVip: boolean;
+    brand?: {
+      businessName: string;
+      tagline?: string | null;
+      industry?: string | null;
+      description?: string | null;
+      website?: string | null;
+      email?: string | null;
+      phone?: string | null;
+      addresses?: { label: string; address: string; phone?: string }[] | null;
+      services?: { name: string; description: string; price?: string; duration?: string }[] | null;
+      policies?: { title: string; content: string }[] | null;
+      faqs?: { question: string; answer: string }[] | null;
+      staff?: { name: string; role: string; department?: string; specialty?: string }[] | null;
+      brandVoice?: { toneKeywords: string[]; wordsToUse: string[]; wordsToAvoid: string[]; samplePhrases: string[] } | null;
+      escalationRules?: { trigger: string; action: string }[] | null;
+    } | null;
   }): string {
     const parts: string[] = [];
 
     parts.push(`You are ${config.personaName}, an AI phone assistant.`);
     parts.push(`Your tone is ${config.personaTone}.`);
-    parts.push('You are having a real-time phone conversation. Keep responses concise and natural.');
+    parts.push('You are having a real-time phone conversation. Reply quickly, naturally, and directly.');
     parts.push('Do not use markdown, emojis, or formatting — this is voice only.');
+    parts.push('Use one short sentence when possible, and never exceed two short sentences.');
+    parts.push('Ask at most one follow-up question, and do not repeat information the caller already heard.');
+
+    // Brand context
+    if (config.brand) {
+      const b = config.brand;
+      parts.push(`\n--- BUSINESS INFORMATION ---`);
+      parts.push(`Business: ${b.businessName}`);
+      if (b.tagline) parts.push(`Tagline: ${b.tagline}`);
+      if (b.industry) parts.push(`Industry: ${b.industry}`);
+      if (b.description) parts.push(`About: ${b.description}`);
+      if (b.website) parts.push(`Website: ${b.website}`);
+      if (b.email) parts.push(`Email: ${b.email}`);
+      if (b.phone) parts.push(`Phone: ${b.phone}`);
+
+      if (b.addresses && b.addresses.length > 0) {
+        parts.push(`\nLocations:`);
+        for (const addr of b.addresses) {
+          parts.push(`- ${addr.label}: ${addr.address}${addr.phone ? ` (${addr.phone})` : ''}`);
+        }
+      }
+
+      if (b.services && b.services.length > 0) {
+        parts.push(`\nServices/Products:`);
+        for (const svc of b.services) {
+          let line = `- ${svc.name}: ${svc.description}`;
+          if (svc.price) line += ` | Price: ${svc.price}`;
+          if (svc.duration) line += ` | Duration: ${svc.duration}`;
+          parts.push(line);
+        }
+      }
+
+      if (b.policies && b.policies.length > 0) {
+        parts.push(`\nPolicies:`);
+        for (const pol of b.policies) {
+          parts.push(`- ${pol.title}: ${pol.content}`);
+        }
+      }
+
+      if (b.faqs && b.faqs.length > 0) {
+        parts.push(`\nFrequently Asked Questions:`);
+        for (const faq of b.faqs) {
+          parts.push(`Q: ${faq.question}\nA: ${faq.answer}`);
+        }
+      }
+
+      if (b.staff && b.staff.length > 0) {
+        parts.push(`\nTeam:`);
+        for (const person of b.staff) {
+          let line = `- ${person.name} (${person.role})`;
+          if (person.department) line += `, ${person.department}`;
+          if (person.specialty) line += `, specializes in ${person.specialty}`;
+          parts.push(line);
+        }
+      }
+
+      if (b.brandVoice) {
+        const v = b.brandVoice;
+        if (v.toneKeywords.length > 0) parts.push(`\nTone: ${v.toneKeywords.join(', ')}`);
+        if (v.wordsToUse.length > 0) parts.push(`Preferred words/phrases: ${v.wordsToUse.join(', ')}`);
+        if (v.wordsToAvoid.length > 0) parts.push(`Avoid these words/phrases: ${v.wordsToAvoid.join(', ')}`);
+        if (v.samplePhrases.length > 0) {
+          parts.push(`Example phrases to match your style:`);
+          for (const phrase of v.samplePhrases) parts.push(`  "${phrase}"`);
+        }
+      }
+
+      if (b.escalationRules && b.escalationRules.length > 0) {
+        parts.push(`\nEscalation Rules:`);
+        for (const rule of b.escalationRules) {
+          parts.push(`- When: ${rule.trigger} → Action: ${rule.action}`);
+        }
+      }
+    }
 
     if (config.systemPrompt) {
-      parts.push(`\nBusiness Instructions:\n${config.systemPrompt}`);
+      parts.push(`\nAdditional Business Instructions:\n${config.systemPrompt}`);
     }
 
     if (config.contactName) {
@@ -140,7 +248,7 @@ export const callService = {
     }
 
     parts.push('\nIf you cannot help with something, offer to take a message or transfer to a human.');
-    parts.push('Keep your responses under 2-3 sentences unless the caller asks for detailed information.');
+    parts.push('Keep responses brief for low latency unless the caller clearly asks for more detail.');
 
     return parts.join('\n');
   },
@@ -183,17 +291,18 @@ export const callService = {
     state.conversationHistory.push({ role: 'user', content: callerText });
 
     // Build messages for LLM
+    const recentConversationHistory = state.conversationHistory.slice(-MAX_VOICE_HISTORY_MESSAGES);
     const messages: LLMMessage[] = [
       { role: 'system', content: state.systemPrompt },
-      ...state.conversationHistory,
+      ...recentConversationHistory,
     ];
 
     // Get LLM response
     const llm = providerRegistry.llm();
     const response = await llm.chat({
       messages,
-      maxTokens: 256,
-      temperature: 0.7,
+      maxTokens: VOICE_LLM_MAX_TOKENS,
+      temperature: VOICE_LLM_TEMPERATURE,
     });
 
     // Add assistant response to history
@@ -217,6 +326,9 @@ export const callService = {
    * End a call — update DB record, clean up Redis state.
    */
   async endCall(callId: string) {
+    const endLock = await redis.set(`call:end:${callId}`, '1', 'EX', END_CALL_LOCK_TTL, 'NX');
+    if (!endLock) return;
+
     const state = await this.getCallState(callId);
     if (!state) return;
 
@@ -240,6 +352,7 @@ export const callService = {
 
     // Queue post-call processing (recording save, summary, sentiment)
     await postCallQueue.add('process', { callId }, {
+      jobId: callId,
       attempts: 3,
       backoff: { type: 'exponential', delay: 2000 },
     });
