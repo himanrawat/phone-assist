@@ -6,9 +6,9 @@
     "timezone": "Asia/Kolkata"
   },
   "tenantAdmin": {
-    "email": "support@melp.us",
-    "passwordHash": "$2b$10$placeholder",
-    "name": "Venk Gorty"
+    "email": "hello@himanshurawat.in",
+    "password": "phone-assistant-dev",
+    "name": "Himanshu Rawat"
   },
   "phoneNumbers": [
     {

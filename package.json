@@ -3,9 +3,14 @@
   "module": "src/server.ts",
   "type": "module",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "bun run --watch src/server.ts",
     "start": "bun run src/server.ts",
+    "test": "NODE_ENV=test DATABASE_URL=postgres://postgres:postgres@localhost:5432/phone_assistant_test REDIS_URL=redis://localhost:6379 bun test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -36,6 +41,7 @@
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.8.4",
     "ioredis": "^5.10.1",
+    "pino": "^9.7.0",
     "postgres": "^3.4.8",
     "uuid": "^13.0.0",
     "ws": "^8.20.0",

@@ -1,0 +1,12 @@
+{
+  "extends": "../../packages/config/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "@phone-assistant/ui": ["../../packages/ui/src"],
+      "@phone-assistant/contracts": ["../../packages/contracts/src"]
+    }
+  },
+  "include": ["src", "next-env.d.ts", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

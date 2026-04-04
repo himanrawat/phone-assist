@@ -1,71 +1,8 @@
-import Fastify from 'fastify';
-import fastifyWebSocket from '@fastify/websocket';
-import fastifyCors from '@fastify/cors';
-import fastifyHelmet from '@fastify/helmet';
-import { env } from './config/env.js';
-
-// Routes
-import { twilioWebhookRoutes } from './routes/webhooks/twilio.webhook.js';
-import { callStreamWebSocket } from './routes/webhooks/call-stream.ws.js';
-import { callRoutes } from './routes/calls/calls.routes.js';
-import { providerRoutes } from './routes/admin/provider.routes.js';
-import { brandRoutes } from './routes/admin/brand.routes.js';
-import { assistantRoutes } from './routes/admin/assistant.routes.js';
-import { startWorkers } from './queue/workers.js';
-import { providerConfigService } from './services/provider/provider-config.service.js';
-
-async function buildServer() {
-  const fastify = Fastify({
-    logger: {
-      level: env.NODE_ENV === 'development' ? 'info' : 'warn',
-      transport: env.NODE_ENV === 'development'
-        ? { target: 'pino-pretty', options: { colorize: true } }
-        : undefined,
-    },
-  });
-
-  // Plugins
-  await fastify.register(fastifyWebSocket);
-  await fastify.register(fastifyCors, {
-    origin: env.NODE_ENV === 'development' ? true : [],
-    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
-  await fastify.register(fastifyHelmet, {
-    contentSecurityPolicy: false, // Disable for development
-  });
-
-  // Parse URL-encoded bodies (Twilio sends form-encoded webhooks)
-  fastify.addContentTypeParser(
-    'application/x-www-form-urlencoded',
-    { parseAs: 'string' },
-    (_req, body, done) => {
-      const params = new URLSearchParams(body as string);
-      const result: Record<string, string> = {};
-      params.forEach((value, key) => { result[key] = value; });
-      done(null, result);
-    }
-  );
-
-  // Health check
-  fastify.get('/health', async () => ({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: env.NODE_ENV,
-  }));
-
-  await providerConfigService.load();
-
-  // Register routes
-  await fastify.register(twilioWebhookRoutes);
-  await fastify.register(callStreamWebSocket);
-  await fastify.register(callRoutes);
-  await fastify.register(providerRoutes);
-  await fastify.register(brandRoutes);
-  await fastify.register(assistantRoutes);
-
-  return fastify;
-}
+import { buildServer } from './app/build-server.js';
+import { env } from './shared/config/env.js';
+import { logger } from './shared/logging/logger.js';
+import { startWorkers } from './jobs/workers.js';
+import { providerConfigService } from './modules/providers/providers.service.js';
 
 const server = await buildServer();
 
@@ -73,11 +10,18 @@ try {
   startWorkers();
   await server.listen({ port: env.PORT, host: env.HOST });
   const globalProviders = providerConfigService.getGlobalConfig();
-  console.log(`\nServer running at http://${env.HOST}:${env.PORT}`);
-  console.log(`Telephony: ${globalProviders.telephony}`);
-  console.log(`STT: ${globalProviders.stt}`);
-  console.log(`TTS: ${globalProviders.tts}`);
-  console.log(`LLM: ${globalProviders.llm}\n`);
+
+  logger.info(
+    {
+      host: env.HOST,
+      port: env.PORT,
+      telephony: globalProviders.telephony,
+      stt: globalProviders.stt,
+      tts: globalProviders.tts,
+      llm: globalProviders.llm,
+    },
+    'Server started'
+  );
 } catch (err) {
   server.log.error(err);
   process.exit(1);

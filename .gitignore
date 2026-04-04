@@ -1,40 +1,62 @@
-# dependencies (bun install)
+# ── Dependencies ──────────────────────────────────────────────────
 node_modules
 
-# output
+# ── Lockfiles (bun) ──────────────────────────────────────────────
+# Bun auto-generates these; keep bun.lock out of git
+# to avoid merge conflicts in monorepo
+bun.lock
+bun.lockb
+
+# ── Next.js build output ─────────────────────────────────────────
+.next
 out
+
+# ── Build output ──────────────────────────────────────────────────
 dist
 *.tgz
 
-# code coverage
+# ── Turborepo cache ───────────────────────────────────────────────
+.turbo
+
+# ── Code coverage ─────────────────────────────────────────────────
 coverage
 *.lcov
 
-# logs
+# ── Logs ──────────────────────────────────────────────────────────
 logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+*.log
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# dotenv environment variable files
+# ── Environment files ─────────────────────────────────────────────
 .env
+.env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env.local
 
-# caches
+# ── TypeScript / Build caches ─────────────────────────────────────
+*.tsbuildinfo
 .eslintcache
 .cache
-*.tsbuildinfo
+tsconfig.tsbuildinfo
 
-# IntelliJ based IDEs
+# ── IDE ───────────────────────────────────────────────────────────
 .idea
+.vscode/settings.json
+.vscode/launch.json
+*.swp
+*.swo
+*~
 
-# Finder (MacOS) folder config
+# ── macOS ─────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
 
-# Drizzle
+# ── Drizzle migrations (generated) ────────────────────────────────
 drizzle/
 
-# Local recording storage
+# ── Local recording storage ───────────────────────────────────────
 storage/
+
+# ── Vercel ────────────────────────────────────────────────────────
+.vercel

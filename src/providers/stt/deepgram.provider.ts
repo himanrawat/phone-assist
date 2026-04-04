@@ -6,6 +6,7 @@ import type {
   TranscriptResult,
 } from '../../types/providers.js';
 import { env } from '../../config/env.js';
+import { logger } from '../../shared/logging/logger.js';
 
 export class DeepgramProvider implements STTProvider {
   readonly name = 'deepgram' as const;
@@ -49,7 +50,7 @@ class DeepgramStream implements STTStream {
     });
 
     this.ws.on('open', () => {
-      console.log('Deepgram STT stream connected');
+      logger.info('Deepgram STT stream connected');
     });
 
     this.ws.on('message', (data: WebSocket.Data) => {
@@ -73,7 +74,7 @@ class DeepgramStream implements STTStream {
     });
 
     this.ws.on('close', () => {
-      console.log('Deepgram STT stream closed');
+      logger.info('Deepgram STT stream closed');
     });
   }
 

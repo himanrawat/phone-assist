@@ -8,6 +8,7 @@ import {
 } from './brand-profile.js';
 
 const timeValueSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:MM time');
+export const DEFAULT_DEVELOPMENT_SEED_SECRET = "test123";
 
 const tenantSeedSchema = z.object({
   name: z.string().trim().min(1),
@@ -17,9 +18,13 @@ const tenantSeedSchema = z.object({
 });
 
 const tenantAdminSeedSchema = z.object({
-  email: z.string().trim().email(),
-  passwordHash: z.string().trim().min(1),
+  email: z.string().trim().pipe(z.email()),
+  password: z.string().min(8).optional(),
+  passwordHash: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1),
+}).refine((value) => Boolean(value.password || value.passwordHash), {
+  message: 'Provide either tenantAdmin.password or tenantAdmin.passwordHash',
+  path: ['password'],
 });
 
 const phoneNumberSeedSchema = z.object({
@@ -145,7 +150,7 @@ export const tenantSeedTemplate: TenantSeedConfig = {
   },
   tenantAdmin: {
     email: 'owner@example.com',
-    passwordHash: '$2b$10$placeholder',
+    password: DEFAULT_DEVELOPMENT_SEED_SECRET,
     name: 'Business Owner',
   },
   phoneNumbers: [
@@ -181,8 +186,8 @@ export const defaultMelpSeedConfig: TenantSeedConfig = {
     timezone: 'Asia/Kolkata',
   },
   tenantAdmin: {
-    email: 'support@melp.us',
-    passwordHash: '$2b$10$placeholder',
+    email: 'hello@himanshurawat.in',
+    password: DEFAULT_DEVELOPMENT_SEED_SECRET,
     name: 'Venk Gorty',
   },
   phoneNumbers: [
@@ -207,7 +212,7 @@ export const defaultMelpSeedConfig: TenantSeedConfig = {
     description:
       'MelpApp is a cross-organization collaboration platform that combines messaging, meetings, file management, and AI-powered workflows into a single intelligent workspace. It is designed for teams, enterprises, and organizations that need to collaborate beyond internal boundaries without relying on vendor-locked ecosystems like Microsoft or Google. Melp embeds AI directly into communication, helping users summarize meetings, translate files, generate content, and extract decisions in real time.',
     website: 'https://melp.us',
-    email: 'support@melp.us',
+    email: 'hello@himanshurawat.in',
     phone: 'N/A',
     addresses: [],
     services: [

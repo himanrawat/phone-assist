@@ -48,7 +48,7 @@ export const brandProfileInputSchema = z.object({
   industry: z.string().trim().optional(),
   description: z.string().trim().optional(),
   website: z.string().trim().optional(),
-  email: z.string().trim().email().optional(),
+  email: z.string().trim().pipe(z.email()).optional(),
   phone: z.string().trim().optional(),
   addresses: z.array(addressSchema).default([]),
   services: z.array(serviceSchema).default([]),

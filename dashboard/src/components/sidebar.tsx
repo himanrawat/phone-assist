@@ -147,7 +147,7 @@ export function Sidebar() {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium">Himanshu Rawat</p>
                 <p className="text-xs text-muted-foreground">
-                  admin@phoneassistant.ai
+                  admin@himanshurawat.in
                 </p>
               </div>
             </DropdownMenuLabel>

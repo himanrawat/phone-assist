@@ -1,5 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../config/database.js';
+import { logger } from '../shared/logging/logger.js';
+import { hashPassword, isPasswordHash } from '../shared/auth/password.js';
+import { ensureDatabaseSchema } from '../shared/db/ensure-schema.js';
 import {
   users,
   tenants,
@@ -11,9 +14,12 @@ import {
   brandProfiles,
 } from './schema.js';
 import {
+  DEFAULT_DEVELOPMENT_SEED_SECRET,
   loadTenantSeedConfig,
   resolveAssistantSeedConfig,
-} from '../lib/seed-config.js';
+} from '../shared/db/seed-config.js';
+
+const DEFAULT_SEED_PASSWORD = DEFAULT_DEVELOPMENT_SEED_SECRET;
 
 function requireRecord<T>(value: T | undefined, label: string): T {
   if (!value) {
@@ -33,36 +39,42 @@ function requireRecord<T>(value: T | undefined, label: string): T {
  *   SEED_CONFIG_PATH=templates/tenant-seed.template.json bun run db:seed
  */
 async function seed() {
-  console.log('Seeding database...');
+  logger.info('Seeding database...');
+  await ensureDatabaseSchema();
 
   const seedConfig = await loadTenantSeedConfig();
   const assistantConfig = resolveAssistantSeedConfig(
     seedConfig.brandProfile,
     seedConfig.aiAssistant
   );
+  const platformAdminPasswordHash = await resolveSeedPasswordHash(
+    { passwordHash: undefined, password: DEFAULT_SEED_PASSWORD },
+    'platform admin'
+  );
+  const tenantAdminPasswordHash = await resolveSeedPasswordHash(seedConfig.tenantAdmin, 'tenant admin');
 
   // Create or update the global super admin used for local development.
   const [admin] = await db
     .insert(users)
     .values({
-      email: 'admin@phone-assistant.dev',
-      passwordHash: '$2b$10$placeholder',
+      email: 'admin@himanshurawat.in',
+      passwordHash: platformAdminPasswordHash,
       name: 'Super Admin',
-      role: 'super_admin',
+      platformRole: 'platform_super_admin',
     })
     .onConflictDoUpdate({
       target: users.email,
       set: {
-        passwordHash: '$2b$10$placeholder',
+        passwordHash: platformAdminPasswordHash,
         name: 'Super Admin',
-        role: 'super_admin',
+        platformRole: 'platform_super_admin',
         updatedAt: new Date(),
       },
     })
     .returning();
   const seededAdmin = requireRecord(admin, 'admin user');
 
-  console.log('Upserted admin user:', seededAdmin.email);
+  logger.info({ email: seededAdmin.email }, 'Upserted admin user');
 
   const [tenant] = await db
     .insert(tenants)
@@ -84,22 +96,21 @@ async function seed() {
     .returning();
   const seededTenant = requireRecord(tenant, 'tenant');
 
-  console.log('Upserted tenant:', seededTenant.name);
+  logger.info({ tenant: seededTenant.name }, 'Upserted tenant');
 
   const [tenantAdmin] = await db
     .insert(users)
     .values({
       email: seedConfig.tenantAdmin.email,
-      passwordHash: seedConfig.tenantAdmin.passwordHash,
+      passwordHash: tenantAdminPasswordHash,
       name: seedConfig.tenantAdmin.name,
-      role: 'tenant_admin',
     })
     .onConflictDoUpdate({
       target: users.email,
       set: {
-        passwordHash: seedConfig.tenantAdmin.passwordHash,
+        passwordHash: tenantAdminPasswordHash,
         name: seedConfig.tenantAdmin.name,
-        role: 'tenant_admin',
+        platformRole: null,
         updatedAt: new Date(),
       },
     })
@@ -115,7 +126,7 @@ async function seed() {
     })
     .onConflictDoNothing();
 
-  console.log('Upserted tenant admin:', seededTenantAdmin.email);
+  logger.info({ email: seededTenantAdmin.email }, 'Upserted tenant admin');
 
   await db
     .delete(tenantWorkingHours)
@@ -133,7 +144,7 @@ async function seed() {
     );
   }
 
-  console.log('Synced working hours');
+  logger.info('Synced working hours');
 
   await db
     .insert(aiAssistants)
@@ -149,7 +160,7 @@ async function seed() {
       },
     });
 
-  console.log('Synced assistant config');
+  logger.info('Synced assistant config');
 
   for (const phoneNumber of seedConfig.phoneNumbers) {
     await db
@@ -174,7 +185,7 @@ async function seed() {
       });
   }
 
-  console.log('Synced phone numbers');
+  logger.info('Synced phone numbers');
 
   await db
     .insert(brandProfiles)
@@ -190,7 +201,7 @@ async function seed() {
       },
     });
 
-  console.log('Synced brand profile');
+  logger.info('Synced brand profile');
 
   await db
     .insert(providerConfig)
@@ -202,12 +213,30 @@ async function seed() {
     ])
     .onConflictDoNothing();
 
-  console.log('Set global provider defaults');
-  console.log('\nSeed complete!');
-  process.exit(0);
+  logger.info('Set global provider defaults');
+  logger.info({ defaultPassword: DEFAULT_SEED_PASSWORD }, 'Seed complete');
 }
 
-seed().catch((err) => {
-  console.error('Seed failed:', err);
+try {
+  await seed();
+  process.exit(0);
+} catch (err) {
+  logger.error({ err }, 'Seed failed');
   process.exit(1);
-});
+}
+
+async function resolveSeedPasswordHash(
+  input: { password?: string; passwordHash?: string },
+  label: string
+) {
+  if (input.password) {
+    return hashPassword(input.password);
+  }
+
+  if (input.passwordHash && isPasswordHash(input.passwordHash) && !input.passwordHash.includes('placeholder')) {
+    return input.passwordHash;
+  }
+
+  logger.warn({ label, defaultPassword: DEFAULT_SEED_PASSWORD }, 'Using default development seed password');
+  return hashPassword(DEFAULT_SEED_PASSWORD);
+}

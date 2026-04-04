@@ -25,7 +25,7 @@ import {
 const data = {
   user: {
     name: "Himanshu Rawat",
-    email: "admin@phoneassistant.ai",
+    email: "admin@himanshurawat.in",
     avatar: "",
   },
   navMain: [

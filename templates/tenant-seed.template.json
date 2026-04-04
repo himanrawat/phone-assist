@@ -7,7 +7,7 @@
   },
   "tenantAdmin": {
     "email": "owner@example.com",
-    "passwordHash": "$2b$10$placeholder",
+    "password": "phone-assistant-dev",
     "name": "Business Owner"
   },
   "phoneNumbers": [
