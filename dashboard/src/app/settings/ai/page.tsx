@@ -20,15 +20,18 @@ export default function AIConfigPage() {
   });
 
   const [stt, setStt] = useState<string>("");
+  const [tts, setTts] = useState<string>("");
 
   const configuredStt = data?.data?.stt;
-  const hasUnsupportedConfiguredStt = configuredStt === "groq";
-  const currentStt = stt || (hasUnsupportedConfiguredStt ? "deepgram" : configuredStt) || "deepgram";
+  const configuredTts = data?.data?.tts;
+  const currentStt = stt || configuredStt || "deepgram";
+  const currentTts = tts || configuredTts || "groq";
 
   function handleSave() {
     mutation.mutate({
       telephonyProvider: "twilio",
       sttProvider: currentStt,
+      ttsProvider: currentTts,
     });
   }
 
@@ -70,15 +73,9 @@ export default function AIConfigPage() {
             Speech-to-Text Provider
           </h2>
           <p className="text-sm text-gray-500 mb-4">
-            Converts caller speech to text. For live Twilio calls, Deepgram is the supported option right now.
+            Converts caller speech to text. Deepgram streams natively, while OpenAI and Groq use chunked utterance uploads keyed off caller pauses.
           </p>
-          {hasUnsupportedConfiguredStt && (
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              Groq Whisper was previously selected, but it is not supported for real-time Twilio calls yet.
-              Saving this form will switch live calls back to Deepgram.
-            </div>
-          )}
-          <div className="flex gap-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <ProviderOption
               name="Deepgram Nova-3"
               description="True real-time streaming, 6.8% WER"
@@ -87,29 +84,45 @@ export default function AIConfigPage() {
               onSelect={() => setStt("deepgram")}
             />
             <ProviderOption
+              name="OpenAI Transcribe"
+              description="Chunked utterance transcription via OPENAI_API_KEY"
+              cost="Usage-based"
+              selected={currentStt === "openai"}
+              onSelect={() => setStt("openai")}
+            />
+            <ProviderOption
               name="Groq Whisper"
-              description="Coming later for uploads and batch transcription, not live Twilio calls"
+              description="Chunked utterance transcription via GROQ_API_KEY"
               cost="~$17/10k calls"
-              selected={false}
-              disabled
-              onSelect={() => {}}
+              selected={currentStt === "groq"}
+              onSelect={() => setStt("groq")}
             />
           </div>
         </div>
 
-        {/* TTS & LLM (fixed for now) */}
+        {/* TTS & LLM */}
         <div className="rounded-lg border border-gray-200 bg-white p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-1">
             TTS & LLM
           </h2>
           <p className="text-sm text-gray-500 mb-4">
-            Currently fixed to Groq for both. More options in future phases.
+            LLM remains on Groq for now. You can switch the speech voice provider here.
           </p>
-          <div className="flex gap-4">
-            <div className="flex-1 rounded-lg border-2 border-blue-500 bg-blue-50 p-4">
-              <p className="font-medium text-gray-900">Groq Orpheus TTS</p>
-              <p className="text-xs text-gray-500 mt-1">~$70/10k calls</p>
-            </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <ProviderOption
+              name="Groq Orpheus TTS"
+              description="Current phone voice path via GROQ_API_KEY"
+              cost="~$70/10k calls"
+              selected={currentTts === "groq"}
+              onSelect={() => setTts("groq")}
+            />
+            <ProviderOption
+              name="OpenAI TTS"
+              description="Uses gpt-4o-mini-tts via OPENAI_API_KEY"
+              cost="Usage-based"
+              selected={currentTts === "openai"}
+              onSelect={() => setTts("openai")}
+            />
             <div className="flex-1 rounded-lg border-2 border-blue-500 bg-blue-50 p-4">
               <p className="font-medium text-gray-900">Groq LLaMA 70B</p>
               <p className="text-xs text-gray-500 mt-1">~$130/10k calls</p>

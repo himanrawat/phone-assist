@@ -2,6 +2,14 @@
 
 Use this document to collect the information needed to complete the Brand Profile section for the AI phone assistant.
 
+## Machine-Readable Templates
+
+If you want to load the same information through JSON instead of filling the dashboard form field by field, use:
+
+- `templates/brand-profile.template.json` for `/settings/brand`
+- `templates/tenant-seed.template.json` for `SEED_CONFIG_PATH=... bun run db:seed`
+- `templates/tenant-seed.melp.json` for the current Melp demo example
+
 ## Why we need this
 
 The AI uses this information to:

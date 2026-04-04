@@ -36,9 +36,10 @@ const steps = [
     number: 3,
     title: "Seed Demo Data",
     description:
-      "Populate the database with sample tenants, calls, and brand profiles.",
+      "Populate the database with the default Melp demo tenant, or point the seed at your own JSON template.",
     command: "bun run db:seed",
     icon: Sprout,
+    note: "Use SEED_CONFIG_PATH=templates/tenant-seed.template.json to seed your own brand",
   },
   {
     number: 4,

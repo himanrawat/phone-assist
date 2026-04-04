@@ -3,6 +3,7 @@ import { callService, type CallState } from './call.service.js';
 import { providerRegistry } from '../../providers/registry.js';
 import type { STTStream, TranscriptResult } from '../../types/providers.js';
 import { providerConfigService } from '../provider/provider-config.service.js';
+import { env } from '../../config/env.js';
 import {
   createTwilioClearMessage,
   createTwilioMarkMessage,
@@ -10,6 +11,11 @@ import {
   createTwilioPlaybackMarkName,
   TWILIO_TTS_OPTIONS,
 } from '../../providers/telephony/twilio-media.js';
+import {
+  resolveActiveCallLanguage,
+  resolveSttLanguage,
+  shouldUseOpenAITts,
+} from './call-language.js';
 
 /**
  * Voice Pipeline — handles real-time audio for a single call.
@@ -29,6 +35,8 @@ export class VoicePipeline {
   private pendingPlaybackMarks = new Set<string>();
   private playbackMarkCounter = 0;
   private interactionVersion = 0;
+  private activeSttProvider = 'deepgram';
+  private suppressSttUntil = 0;
 
   constructor(
     private ws: WebSocket,
@@ -43,26 +51,23 @@ export class VoicePipeline {
   start() {
     const requestedSttProvider = this.tenantOverrides?.sttProvider
       || providerConfigService.getGlobalConfig().stt;
-    const effectiveSttProvider = requestedSttProvider === 'groq'
-      ? 'deepgram'
-      : requestedSttProvider;
+    this.activeSttProvider = requestedSttProvider;
     const sttProvider = providerRegistry.stt({
       ...this.tenantOverrides,
-      sttProvider: effectiveSttProvider,
+      sttProvider: requestedSttProvider,
     });
     const telephonyProvider = providerRegistry.telephony(this.tenantOverrides);
     const mediaConfig = telephonyProvider.getMediaStreamConfig();
-
-    if (requestedSttProvider !== effectiveSttProvider) {
-      console.warn(
-        `[Call ${this.callState.callId}] STT provider "${requestedSttProvider}" is not supported for real-time Twilio media streams yet; falling back to "${effectiveSttProvider}".`
-      );
-    }
 
     this.sttStream = sttProvider.createStream({
       encoding: mediaConfig.encoding,
       sampleRate: mediaConfig.sampleRate,
       endpointingMs: 250,
+      language: resolveSttLanguage({
+        primaryLanguage: this.callState.primaryLanguage,
+        multilingualEnabled: this.callState.multilingualEnabled,
+        providerName: requestedSttProvider,
+      }),
     });
 
     this.sttStream.onTranscript((result: TranscriptResult) => {
@@ -82,10 +87,15 @@ export class VoicePipeline {
   handleAudio(audioPayload: string) {
     if (!this.sttStream) return;
     const audioBuffer = Buffer.from(audioPayload, 'base64');
-    this.sttStream.send(audioBuffer);
 
     // Also store for recording
     this.callState.recordingChunks.push(audioPayload);
+
+    if (this.shouldSuppressSttInput()) {
+      return;
+    }
+
+    this.sttStream.send(audioBuffer);
   }
 
   /**
@@ -125,14 +135,16 @@ export class VoicePipeline {
       const llmStartedAt = Date.now();
       const aiResponse = await callService.processConversationTurn(
         this.callState.callId,
-        text
+        text,
+        { detectedLanguage: result.language }
       );
       const llmDurationMs = Date.now() - llmStartedAt;
+      this.callState.activeLanguage = aiResponse.responseLanguage;
 
-      console.log(`[Call ${this.callState.callId}] Assistant: ${aiResponse}`);
+      console.log(`[Call ${this.callState.callId}] Assistant: ${aiResponse.content}`);
       console.log(`[Call ${this.callState.callId}] LLM completed in ${llmDurationMs}ms`);
 
-      await this.playAssistantText(aiResponse, turnVersion, 'hannah', {
+      await this.playAssistantText(aiResponse.content, turnVersion, this.callState.voiceId || 'hannah', {
         turnStartedAt,
         llmDurationMs,
       });
@@ -177,6 +189,10 @@ export class VoicePipeline {
   handlePlaybackMark(markName: string) {
     if (!markName) return;
     this.pendingPlaybackMarks.delete(markName);
+
+    if (this.pendingPlaybackMarks.size === 0) {
+      this.suppressSttUntil = Date.now() + 500;
+    }
   }
 
   private interruptAssistantTurn(reason: string) {
@@ -188,6 +204,7 @@ export class VoicePipeline {
     if (this.pendingPlaybackMarks.size > 0 && this.ws.readyState === this.ws.OPEN) {
       this.ws.send(createTwilioClearMessage(this.streamSid));
       this.pendingPlaybackMarks.clear();
+      this.suppressSttUntil = Date.now() + 250;
       console.log(`[Call ${this.callState.callId}] Cleared assistant playback: ${reason}`);
     }
   }
@@ -198,11 +215,18 @@ export class VoicePipeline {
     voice = 'hannah',
     timings?: { turnStartedAt: number; llmDurationMs?: number }
   ) {
-    const tts = providerRegistry.tts();
+    const language = resolveActiveCallLanguage(this.callState);
+    const configuredTtsProvider = providerConfigService.getGlobalConfig().tts;
+    const shouldFallbackToOpenAI = configuredTtsProvider !== 'openai'
+      && shouldUseOpenAITts(this.callState)
+      && Boolean(env.OPENAI_API_KEY);
+    const ttsProviderName = shouldFallbackToOpenAI ? 'openai' : configuredTtsProvider;
+    const tts = providerRegistry.tts(ttsProviderName);
     const ttsStartedAt = Date.now();
     const audioBuffer = await tts.synthesize({
       text,
       voice,
+      language,
       ...TWILIO_TTS_OPTIONS,
     });
     const ttsDurationMs = Date.now() - ttsStartedAt;
@@ -220,7 +244,7 @@ export class VoicePipeline {
         ? `, llm=${timings.llmDurationMs}ms`
         : '';
       console.log(
-        `[Call ${this.callState.callId}] Outbound audio queued in ${totalDurationMs}ms${llmPart}, tts=${ttsDurationMs}ms`
+        `[Call ${this.callState.callId}] Outbound audio queued in ${totalDurationMs}ms${llmPart}, tts=${ttsDurationMs}ms, ttsProvider=${ttsProviderName}, language=${language}`
       );
     }
   }
@@ -253,6 +277,14 @@ export class VoicePipeline {
       this.sttStream = null;
     }
     console.log(`Voice pipeline stopped for call ${this.callState.callId}`);
+  }
+
+  private shouldSuppressSttInput() {
+    if (this.activeSttProvider === 'deepgram') {
+      return false;
+    }
+
+    return this.pendingPlaybackMarks.size > 0 || Date.now() < this.suppressSttUntil;
   }
 }
 

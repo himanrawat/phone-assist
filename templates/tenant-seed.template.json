@@ -1,0 +1,119 @@
+{
+  "tenant": {
+    "name": "Your Business Name",
+    "slug": "your-business-name",
+    "industry": "Your industry",
+    "timezone": "America/New_York"
+  },
+  "tenantAdmin": {
+    "email": "owner@example.com",
+    "passwordHash": "$2b$10$placeholder",
+    "name": "Business Owner"
+  },
+  "phoneNumbers": [
+    {
+      "number": "+15555550100",
+      "provider": "twilio",
+      "isActive": true
+    }
+  ],
+  "workingHours": [
+    {
+      "dayOfWeek": 1,
+      "startTime": "09:00",
+      "endTime": "18:00",
+      "isActive": true
+    },
+    {
+      "dayOfWeek": 2,
+      "startTime": "09:00",
+      "endTime": "18:00",
+      "isActive": true
+    },
+    {
+      "dayOfWeek": 3,
+      "startTime": "09:00",
+      "endTime": "18:00",
+      "isActive": true
+    },
+    {
+      "dayOfWeek": 4,
+      "startTime": "09:00",
+      "endTime": "18:00",
+      "isActive": true
+    },
+    {
+      "dayOfWeek": 5,
+      "startTime": "09:00",
+      "endTime": "18:00",
+      "isActive": true
+    }
+  ],
+  "brandProfile": {
+    "businessName": "Your Business Name",
+    "tagline": "Short promise or differentiator",
+    "industry": "Your industry",
+    "description": "Describe what your business does, who it serves, and what makes it different.",
+    "website": "https://www.example.com",
+    "email": "hello@example.com",
+    "phone": "+15555550100",
+    "addresses": [
+      {
+        "label": "Main Location",
+        "address": "123 Main Street, City, State, ZIP",
+        "phone": "+15555550100"
+      }
+    ],
+    "services": [
+      {
+        "name": "Primary Service",
+        "description": "Describe the main service or product callers usually ask about.",
+        "price": "Starting at $100",
+        "duration": "30 minutes"
+      }
+    ],
+    "policies": [
+      {
+        "title": "Cancellation Policy",
+        "content": "Add a caller-safe summary of your cancellation or refund policy."
+      }
+    ],
+    "faqs": [
+      {
+        "question": "What do you help customers with?",
+        "answer": "Add an approved FAQ answer the assistant can say aloud on calls."
+      }
+    ],
+    "staff": [
+      {
+        "name": "Team Member Name",
+        "role": "Role or department",
+        "department": "Department",
+        "specialty": "Optional specialty"
+      }
+    ],
+    "brandVoice": {
+      "toneKeywords": ["professional", "warm", "clear"],
+      "wordsToUse": ["happy to help", "let me check that for you"],
+      "wordsToAvoid": ["unfortunately"],
+      "samplePhrases": [
+        "Thanks for calling. I can help with that.",
+        "Let me walk you through the next step."
+      ]
+    },
+    "escalationRules": [
+      {
+        "trigger": "Caller asks for a manager or sensitive account-specific information",
+        "action": "Take a message or transfer to an approved human contact."
+      }
+    ]
+  },
+  "aiAssistant": {
+    "voiceId": "hannah",
+    "primaryLanguage": "en",
+    "multilingualEnabled": false,
+    "recordingEnabled": true,
+    "consentAnnouncement": true,
+    "maxCallDurationSec": 600
+  }
+}

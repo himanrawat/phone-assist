@@ -10,6 +10,7 @@ import { callStreamWebSocket } from './routes/webhooks/call-stream.ws.js';
 import { callRoutes } from './routes/calls/calls.routes.js';
 import { providerRoutes } from './routes/admin/provider.routes.js';
 import { brandRoutes } from './routes/admin/brand.routes.js';
+import { assistantRoutes } from './routes/admin/assistant.routes.js';
 import { startWorkers } from './queue/workers.js';
 import { providerConfigService } from './services/provider/provider-config.service.js';
 
@@ -61,6 +62,7 @@ async function buildServer() {
   await fastify.register(callRoutes);
   await fastify.register(providerRoutes);
   await fastify.register(brandRoutes);
+  await fastify.register(assistantRoutes);
 
   return fastify;
 }

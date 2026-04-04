@@ -1,67 +1,11 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { db } from '../../config/database.js';
-import { brandProfiles, tenants } from '../../db/schema.js';
+import { aiAssistants, brandProfiles, tenants } from '../../db/schema.js';
 import { asc, eq } from 'drizzle-orm';
-import { z } from 'zod';
-
-const addressSchema = z.object({
-  label: z.string().min(1),
-  address: z.string().min(1),
-  phone: z.string().optional(),
-});
-
-const serviceSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().min(1),
-  price: z.string().optional(),
-  duration: z.string().optional(),
-});
-
-const policySchema = z.object({
-  title: z.string().min(1),
-  content: z.string().min(1),
-});
-
-const faqSchema = z.object({
-  question: z.string().min(1),
-  answer: z.string().min(1),
-});
-
-const staffSchema = z.object({
-  name: z.string().min(1),
-  role: z.string().min(1),
-  department: z.string().optional(),
-  specialty: z.string().optional(),
-});
-
-const brandVoiceSchema = z.object({
-  toneKeywords: z.array(z.string()).default([]),
-  wordsToUse: z.array(z.string()).default([]),
-  wordsToAvoid: z.array(z.string()).default([]),
-  samplePhrases: z.array(z.string()).default([]),
-});
-
-const escalationRuleSchema = z.object({
-  trigger: z.string().min(1),
-  action: z.string().min(1),
-});
-
-const upsertBrandSchema = z.object({
-  businessName: z.string().min(1),
-  tagline: z.string().optional(),
-  industry: z.string().optional(),
-  description: z.string().optional(),
-  website: z.string().optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  addresses: z.array(addressSchema).default([]),
-  services: z.array(serviceSchema).default([]),
-  policies: z.array(policySchema).default([]),
-  faqs: z.array(faqSchema).default([]),
-  staff: z.array(staffSchema).default([]),
-  brandVoice: brandVoiceSchema.default({ toneKeywords: [], wordsToUse: [], wordsToAvoid: [], samplePhrases: [] }),
-  escalationRules: z.array(escalationRuleSchema).default([]),
-});
+import {
+  brandProfileInputSchema,
+  createAssistantDefaultsForBrand,
+} from '../../lib/brand-profile.js';
 
 async function resolveTenant(tenantId?: string) {
   if (tenantId) {
@@ -135,7 +79,7 @@ export async function brandRoutes(fastify: FastifyInstance) {
       return;
     }
 
-    const body = upsertBrandSchema.parse(request.body);
+    const body = brandProfileInputSchema.parse(request.body);
 
     const existing = await db
       .select({ id: brandProfiles.id })
@@ -156,6 +100,21 @@ export async function brandRoutes(fastify: FastifyInstance) {
         .values({ tenantId: tenant.id, ...body })
         .returning();
     }
+
+    const assistantDefaults = createAssistantDefaultsForBrand(body);
+    await db
+      .insert(aiAssistants)
+      .values({
+        tenantId: tenant.id,
+        ...assistantDefaults,
+      })
+      .onConflictDoUpdate({
+        target: aiAssistants.tenantId,
+        set: {
+          ...assistantDefaults,
+          updatedAt: new Date(),
+        },
+      });
 
     reply.send({ success: true, data: result, tenant });
   };

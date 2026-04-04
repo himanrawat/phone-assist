@@ -166,6 +166,42 @@ export interface BrandSaveResponse {
   tenant: BrandTenantInfo;
 }
 
+export interface AssistantSettings {
+  id: string;
+  tenantId: string;
+  primaryLanguage: string;
+  multilingualEnabled: boolean;
+  updatedAt: string;
+}
+
+export interface AssistantSettingsResponse {
+  data: AssistantSettings | null;
+  tenant: BrandTenantInfo;
+}
+
+export interface AssistantSettingsSaveResponse {
+  success: boolean;
+  data: AssistantSettings;
+  tenant: BrandTenantInfo;
+}
+
+export interface BrandProfilePayload {
+  businessName: string;
+  tagline?: string;
+  industry?: string;
+  description?: string;
+  website?: string;
+  email?: string;
+  phone?: string;
+  addresses: BrandAddress[];
+  services: BrandService[];
+  policies: BrandPolicy[];
+  faqs: BrandFAQ[];
+  staff: BrandStaff[];
+  brandVoice: BrandVoice;
+  escalationRules: BrandEscalationRule[];
+}
+
 function buildBrandProfilePath(tenantId?: string) {
   const normalizedTenantId = tenantId?.trim();
   return normalizedTenantId
@@ -177,8 +213,32 @@ export async function getBrandProfile(tenantId?: string) {
   return fetchApi<BrandProfileResponse>(buildBrandProfilePath(tenantId));
 }
 
-export async function updateBrandProfile(tenantId: string | undefined, data: Omit<BrandProfile, 'id' | 'tenantId' | 'createdAt' | 'updatedAt'>) {
+export async function updateBrandProfile(tenantId: string | undefined, data: BrandProfilePayload) {
   return fetchApi<BrandSaveResponse>(buildBrandProfilePath(tenantId), {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+function buildAssistantSettingsPath(tenantId?: string) {
+  const normalizedTenantId = tenantId?.trim();
+  return normalizedTenantId
+    ? `/api/v1/admin/tenants/${normalizedTenantId}/assistant`
+    : '/api/v1/admin/assistant';
+}
+
+export async function getAssistantSettings(tenantId?: string) {
+  return fetchApi<AssistantSettingsResponse>(buildAssistantSettingsPath(tenantId));
+}
+
+export async function updateAssistantSettings(
+  tenantId: string | undefined,
+  data: {
+    primaryLanguage: string;
+    multilingualEnabled: boolean;
+  }
+) {
+  return fetchApi<AssistantSettingsSaveResponse>(buildAssistantSettingsPath(tenantId), {
     method: 'PUT',
     body: JSON.stringify(data),
   });
@@ -193,6 +253,7 @@ export async function getProviders() {
 export async function updateProviders(data: {
   telephonyProvider?: string;
   sttProvider?: string;
+  ttsProvider?: string;
 }) {
   return fetchApi<{ success: boolean }>('/api/v1/admin/providers', {
     method: 'PUT',

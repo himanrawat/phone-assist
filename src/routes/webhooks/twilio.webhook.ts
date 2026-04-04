@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { callService } from '../../services/call/call.service.js';
 import { providerRegistry } from '../../providers/registry.js';
 import { env } from '../../config/env.js';
+import { createAssistantDefaultsForBrand } from '../../lib/brand-profile.js';
+import { normalizeLanguageTag } from '../../services/call/call-language.js';
 
 export async function twilioWebhookRoutes(fastify: FastifyInstance) {
   /**
@@ -57,12 +59,21 @@ export async function twilioWebhookRoutes(fastify: FastifyInstance) {
 
     // Fetch brand profile for rich business context
     const brandProfile = await callService.getBrandProfile(tenant.id);
+    const brandAssistantDefaults = brandProfile
+      ? createAssistantDefaultsForBrand(brandProfile)
+      : null;
+    const primaryLanguage = normalizeLanguageTag(assistantConfig?.primaryLanguage);
+    const multilingualEnabled = assistantConfig?.multilingualEnabled ?? false;
+    const voiceId = assistantConfig?.voiceId || 'hannah';
+    const greetingMessage = assistantConfig?.greetingMessage || brandAssistantDefaults?.greetingMessage;
 
     // Build system prompt
     const systemPrompt = callService.buildSystemPrompt({
-      personaName: assistantConfig?.personaName || 'Assistant',
-      personaTone: assistantConfig?.personaTone || 'professional',
+      personaName: assistantConfig?.personaName || brandAssistantDefaults?.personaName || 'Assistant',
+      personaTone: assistantConfig?.personaTone || brandAssistantDefaults?.personaTone || 'professional',
       systemPrompt: assistantConfig?.systemPrompt,
+      primaryLanguage,
+      multilingualEnabled,
       contactName: contact.name,
       isVip: contact.isVip,
       brand: brandProfile,
@@ -80,6 +91,11 @@ export async function twilioWebhookRoutes(fastify: FastifyInstance) {
       status: 'in_progress',
       conversationHistory: [],
       systemPrompt,
+      primaryLanguage,
+      multilingualEnabled,
+      activeLanguage: primaryLanguage,
+      voiceId,
+      greetingMessage,
       contactId: contact.id,
       contactName: contact.name || undefined,
       isVip: contact.isVip,

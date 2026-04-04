@@ -17,6 +17,9 @@ const envSchema = z.object({
   // Groq
   GROQ_API_KEY: z.string().default(''),
 
+  // OpenAI
+  OPENAI_API_KEY: z.string().default(''),
+
   // Deepgram
   DEEPGRAM_API_KEY: z.string().default(''),
 
@@ -29,8 +32,8 @@ const envSchema = z.object({
 
   // Active providers
   TELEPHONY_PROVIDER: z.enum(['twilio']).default('twilio'),
-  STT_PROVIDER: z.enum(['deepgram', 'groq']).default('deepgram'),
-  TTS_PROVIDER: z.enum(['groq']).default('groq'),
+  STT_PROVIDER: z.enum(['deepgram', 'groq', 'openai']).default('deepgram'),
+  TTS_PROVIDER: z.enum(['groq', 'openai']).default('groq'),
   LLM_PROVIDER: z.enum(['groq']).default('groq'),
 });
 

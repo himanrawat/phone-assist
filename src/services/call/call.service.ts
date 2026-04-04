@@ -5,6 +5,11 @@ import { calls, callMessages, phoneNumbers, tenants, aiAssistants, contacts, bra
 import { providerRegistry } from '../../providers/registry.js';
 import type { LLMMessage } from '../../types/providers.js';
 import { postCallQueue } from '../../queue/workers.js';
+import {
+  buildTurnLanguagePrompt,
+  normalizeLanguageTag,
+  resolveActiveCallLanguage,
+} from './call-language.js';
 
 export interface CallState {
   callId: string;
@@ -17,6 +22,11 @@ export interface CallState {
   status: 'ringing' | 'in_progress' | 'completed';
   conversationHistory: LLMMessage[];
   systemPrompt: string;
+  primaryLanguage: string;
+  multilingualEnabled: boolean;
+  activeLanguage: string;
+  voiceId: string;
+  greetingMessage?: string;
   contactId?: string;
   contactName?: string;
   isVip: boolean;
@@ -136,6 +146,8 @@ export const callService = {
     personaName: string;
     personaTone: string;
     systemPrompt?: string | null;
+    primaryLanguage?: string | null;
+    multilingualEnabled?: boolean;
     contactName?: string | null;
     isVip: boolean;
     brand?: {
@@ -156,6 +168,7 @@ export const callService = {
     } | null;
   }): string {
     const parts: string[] = [];
+    const primaryLanguage = normalizeLanguageTag(config.primaryLanguage);
 
     parts.push(`You are ${config.personaName}, an AI phone assistant.`);
     parts.push(`Your tone is ${config.personaTone}.`);
@@ -163,6 +176,12 @@ export const callService = {
     parts.push('Do not use markdown, emojis, or formatting — this is voice only.');
     parts.push('Use one short sentence when possible, and never exceed two short sentences.');
     parts.push('Ask at most one follow-up question, and do not repeat information the caller already heard.');
+    parts.push(`The primary language for this call is ${primaryLanguage}.`);
+    if (config.multilingualEnabled) {
+      parts.push('If the caller speaks or requests another language, reply in that same language and stay consistent until they switch again.');
+    } else {
+      parts.push(`Always respond in ${primaryLanguage}. If needed, politely explain that you can continue in ${primaryLanguage}.`);
+    }
 
     // Brand context
     if (config.brand) {
@@ -283,17 +302,36 @@ export const callService = {
   /**
    * Process a conversation turn: send caller's text to LLM, get response.
    */
-  async processConversationTurn(callId: string, callerText: string): Promise<string> {
+  async processConversationTurn(
+    callId: string,
+    callerText: string,
+    options?: { detectedLanguage?: string | null }
+  ): Promise<{ content: string; responseLanguage: string }> {
     const state = await this.getCallState(callId);
     if (!state) throw new Error(`No call state for ${callId}`);
 
     // Add caller's message
     state.conversationHistory.push({ role: 'user', content: callerText });
+    const responseLanguage = resolveActiveCallLanguage({
+      primaryLanguage: state.primaryLanguage,
+      multilingualEnabled: state.multilingualEnabled,
+      activeLanguage: state.activeLanguage,
+      detectedLanguage: options?.detectedLanguage,
+    });
 
     // Build messages for LLM
     const recentConversationHistory = state.conversationHistory.slice(-MAX_VOICE_HISTORY_MESSAGES);
     const messages: LLMMessage[] = [
       { role: 'system', content: state.systemPrompt },
+      {
+        role: 'system',
+        content: buildTurnLanguagePrompt({
+          primaryLanguage: state.primaryLanguage,
+          multilingualEnabled: state.multilingualEnabled,
+          activeLanguage: state.activeLanguage,
+          detectedLanguage: options?.detectedLanguage,
+        }),
+      },
       ...recentConversationHistory,
     ];
 
@@ -307,6 +345,7 @@ export const callService = {
 
     // Add assistant response to history
     state.conversationHistory.push({ role: 'assistant', content: response.content });
+    state.activeLanguage = responseLanguage;
 
     // Save updated state
     await this.setCallState(callId, state);
@@ -319,7 +358,10 @@ export const callService = {
       ])
       .catch((err) => console.error('Failed to persist call messages:', err));
 
-    return response.content;
+    return {
+      content: response.content,
+      responseLanguage,
+    };
   },
 
   /**

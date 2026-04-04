@@ -61,17 +61,18 @@ export async function callStreamWebSocket(fastify: FastifyInstance) {
             pipeline.start();
 
             // Send initial greeting via TTS
-            const assistantConfig = await callService.getAssistantConfig(callState.tenantId);
-            if (assistantConfig?.greetingMessage) {
+            const greetingMessage = callState.greetingMessage;
+
+            if (greetingMessage) {
               await pipeline.playGreeting(
-                assistantConfig.greetingMessage,
-                assistantConfig.voiceId || 'hannah'
+                greetingMessage,
+                callState.voiceId || 'hannah'
               );
 
               // Add greeting to conversation history
               callState.conversationHistory.push({
                 role: 'assistant',
-                content: assistantConfig.greetingMessage,
+                content: greetingMessage,
               });
               await callService.setCallState(callId, callState);
             }

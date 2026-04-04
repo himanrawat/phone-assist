@@ -7,7 +7,8 @@ import { providerConfigService } from '../../services/provider/provider-config.s
 
 const updateGlobalProviderSchema = z.object({
   telephonyProvider: z.literal('twilio').optional(),
-  sttProvider: z.enum(['deepgram', 'groq']).optional(),
+  sttProvider: z.enum(['deepgram', 'groq', 'openai']).optional(),
+  ttsProvider: z.enum(['groq', 'openai']).optional(),
 });
 
 const updateTenantProviderSchema = z.object({
@@ -31,13 +32,6 @@ export async function providerRoutes(fastify: FastifyInstance) {
   fastify.put('/api/v1/admin/providers', async (request, reply) => {
     const body = updateGlobalProviderSchema.parse(request.body);
 
-    if (body.sttProvider === 'groq') {
-      reply.status(400).send({
-        error: 'Groq Whisper is not supported for real-time Twilio calls yet. Use Deepgram.',
-      });
-      return;
-    }
-
     const data = await providerConfigService.updateGlobalConfig(body);
     reply.send({ success: true, data });
   });
@@ -50,13 +44,6 @@ export async function providerRoutes(fastify: FastifyInstance) {
   fastify.put('/api/v1/admin/tenants/:tenantId/providers', async (request, reply) => {
     const { tenantId } = request.params as { tenantId: string };
     const body = updateTenantProviderSchema.parse(request.body);
-
-    if (body.sttProvider === 'groq') {
-      reply.status(400).send({
-        error: 'Groq Whisper is not supported for real-time Twilio calls yet. Use Deepgram.',
-      });
-      return;
-    }
 
     const updates: Record<string, unknown> = {};
     if (body.telephonyProvider !== undefined) {

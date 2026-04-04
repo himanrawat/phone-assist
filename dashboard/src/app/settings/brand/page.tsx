@@ -3,7 +3,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getBrandProfile,
+  getAssistantSettings,
   updateBrandProfile,
+  updateAssistantSettings,
   type BrandProfile,
   type BrandProfileResponse,
   type BrandAddress,
@@ -11,43 +13,29 @@ import {
   type BrandPolicy,
   type BrandFAQ,
   type BrandStaff,
-  type BrandVoice,
   type BrandEscalationRule,
+  type AssistantSettings,
+  type AssistantSettingsResponse,
 } from "@/lib/api";
+import {
+  blankBrandProfileTemplate,
+  brandProfileInputSchema,
+  emptyBrandProfileInput,
+  formatBrandProfileJsonError,
+  type BrandProfileInput,
+} from "@/lib/brand-profile";
 import { useState, useEffect } from "react";
 
-type FormState = {
-  businessName: string;
-  tagline: string;
-  industry: string;
-  description: string;
-  website: string;
-  email: string;
-  phone: string;
-  addresses: BrandAddress[];
-  services: BrandService[];
-  policies: BrandPolicy[];
-  faqs: BrandFAQ[];
-  staff: BrandStaff[];
-  brandVoice: BrandVoice;
-  escalationRules: BrandEscalationRule[];
+type FormState = BrandProfileInput;
+type AssistantFormState = {
+  primaryLanguage: string;
+  multilingualEnabled: boolean;
 };
 
-const emptyForm: FormState = {
-  businessName: "",
-  tagline: "",
-  industry: "",
-  description: "",
-  website: "",
-  email: "",
-  phone: "",
-  addresses: [],
-  services: [],
-  policies: [],
-  faqs: [],
-  staff: [],
-  brandVoice: { toneKeywords: [], wordsToUse: [], wordsToAvoid: [], samplePhrases: [] },
-  escalationRules: [],
+const emptyForm: FormState = emptyBrandProfileInput;
+const emptyAssistantForm: AssistantFormState = {
+  primaryLanguage: "en",
+  multilingualEnabled: false,
 };
 
 function profileToForm(p: BrandProfile): FormState {
@@ -64,8 +52,15 @@ function profileToForm(p: BrandProfile): FormState {
     policies: p.policies || [],
     faqs: p.faqs || [],
     staff: p.staff || [],
-    brandVoice: p.brandVoice || emptyForm.brandVoice,
+    brandVoice: p.brandVoice || emptyBrandProfileInput.brandVoice,
     escalationRules: p.escalationRules || [],
+  };
+}
+
+function assistantToForm(settings: AssistantSettings | null | undefined): AssistantFormState {
+  return {
+    primaryLanguage: settings?.primaryLanguage || "en",
+    multilingualEnabled: settings?.multilingualEnabled ?? false,
   };
 }
 
@@ -73,11 +68,28 @@ export default function BrandSettingsPage() {
   const queryClient = useQueryClient();
   const [tenantIdInput, setTenantIdInput] = useState("");
   const [activeTenantId, setActiveTenantId] = useState<string | undefined>(undefined);
+  const [jsonEditor, setJsonEditor] = useState(
+    JSON.stringify(blankBrandProfileTemplate, null, 2)
+  );
+  const [jsonNotice, setJsonNotice] = useState<{
+    tone: "success" | "error" | "info";
+    message: string;
+  } | null>(null);
   const brandQueryKey = ["brand", activeTenantId || "__default__"];
+  const assistantQueryKey = ["assistant", activeTenantId || "__default__"];
 
   const { data, error: queryError, isLoading } = useQuery({
     queryKey: brandQueryKey,
     queryFn: () => getBrandProfile(activeTenantId),
+  });
+
+  const {
+    data: assistantData,
+    error: assistantQueryError,
+    isLoading: isAssistantLoading,
+  } = useQuery({
+    queryKey: assistantQueryKey,
+    queryFn: () => getAssistantSettings(activeTenantId),
   });
 
   const mutation = useMutation({
@@ -88,7 +100,16 @@ export default function BrandSettingsPage() {
     },
   });
 
+  const assistantMutation = useMutation({
+    mutationFn: (form: AssistantFormState) => updateAssistantSettings(activeTenantId, form),
+    onSuccess: (response) => {
+      queryClient.setQueryData<AssistantSettingsResponse>(assistantQueryKey, response);
+      queryClient.invalidateQueries({ queryKey: assistantQueryKey });
+    },
+  });
+
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [assistantForm, setAssistantForm] = useState<AssistantFormState>(emptyAssistantForm);
 
   useEffect(() => {
     if (!data) {
@@ -96,33 +117,130 @@ export default function BrandSettingsPage() {
     }
 
     if (data.data) {
-      setForm(profileToForm(data.data));
+      const nextForm = profileToForm(data.data);
+      setForm(nextForm);
+      setJsonEditor(JSON.stringify(nextForm, null, 2));
+      setJsonNotice({
+        tone: "info",
+        message: "Loaded the current saved brand profile into the form and JSON editor.",
+      });
       return;
     }
 
     setForm(emptyForm);
+    setJsonEditor(JSON.stringify(blankBrandProfileTemplate, null, 2));
   }, [data]);
+
+  useEffect(() => {
+    if (!assistantData) {
+      return;
+    }
+
+    setAssistantForm(assistantToForm(assistantData.data));
+  }, [assistantData]);
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function updateAssistantField<K extends keyof AssistantFormState>(
+    key: K,
+    value: AssistantFormState[K]
+  ) {
+    setAssistantForm((prev) => ({ ...prev, [key]: value }));
+  }
+
   function handleLoad() {
     const nextTenantId = tenantIdInput.trim() || undefined;
     mutation.reset();
+    assistantMutation.reset();
     setActiveTenantId(nextTenantId);
     queryClient.invalidateQueries({ queryKey: ["brand", nextTenantId || "__default__"] });
+    queryClient.invalidateQueries({ queryKey: ["assistant", nextTenantId || "__default__"] });
   }
 
   function handleSave() {
     mutation.mutate(form);
   }
 
-  const resolvedTenant = mutation.data?.tenant || data?.tenant;
-  const loadErrorMessage = queryError instanceof Error ? queryError.message : null;
-  const errorMessage = mutation.error instanceof Error ? mutation.error.message : "Unknown error";
+  function handleSaveAssistant() {
+    assistantMutation.mutate({
+      primaryLanguage: assistantForm.primaryLanguage.trim() || "en",
+      multilingualEnabled: assistantForm.multilingualEnabled,
+    });
+  }
 
-  if (isLoading) return <p className="text-gray-500 p-4">Loading brand profile...</p>;
+  function handleLoadCurrentJson() {
+    setJsonEditor(JSON.stringify(form, null, 2));
+    setJsonNotice({
+      tone: "info",
+      message: "Copied the current form state into the JSON editor.",
+    });
+  }
+
+  function handleUseTemplateJson() {
+    setJsonEditor(JSON.stringify(blankBrandProfileTemplate, null, 2));
+    setJsonNotice({
+      tone: "info",
+      message: "Loaded the starter JSON template. Replace the example values with your own.",
+    });
+  }
+
+  function handleApplyJson() {
+    try {
+      const parsed = JSON.parse(jsonEditor) as unknown;
+      const nextForm = brandProfileInputSchema.parse(parsed);
+      setForm(nextForm);
+      setJsonEditor(JSON.stringify(nextForm, null, 2));
+      setJsonNotice({
+        tone: "success",
+        message: "JSON applied to the form. Review it below and click Save Brand Profile when ready.",
+      });
+    } catch (error) {
+      setJsonNotice({
+        tone: "error",
+        message: formatBrandProfileJsonError(error),
+      });
+    }
+  }
+
+  async function handleJsonFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const nextJson = await file.text();
+      setJsonEditor(nextJson);
+      setJsonNotice({
+        tone: "info",
+        message: `Loaded ${file.name}. Click "Apply JSON To Form" to validate and use it.`,
+      });
+    } catch (error) {
+      setJsonNotice({
+        tone: "error",
+        message: formatBrandProfileJsonError(error),
+      });
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  const resolvedTenant = assistantMutation.data?.tenant || mutation.data?.tenant || assistantData?.tenant || data?.tenant;
+  const loadErrorMessage = queryError instanceof Error
+    ? queryError.message
+    : assistantQueryError instanceof Error
+    ? assistantQueryError.message
+    : null;
+  const errorMessage = mutation.error instanceof Error ? mutation.error.message : "Unknown error";
+  const assistantErrorMessage = assistantMutation.error instanceof Error
+    ? assistantMutation.error.message
+    : "Unknown error";
+
+  if (isLoading || isAssistantLoading) {
+    return <p className="text-gray-500 p-4">Loading brand profile...</p>;
+  }
 
   return (
     <div>
@@ -165,6 +283,71 @@ export default function BrandSettingsPage() {
       </div>
 
       <div className="space-y-6 max-w-3xl">
+        <Section
+          title="JSON Import / Export"
+          description="Use the same payload shape as the seed templates. Paste JSON, upload a file, or mirror the form into JSON."
+        >
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleLoadCurrentJson}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                Load Current Form
+              </button>
+              <button
+                onClick={handleUseTemplateJson}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                Use Starter Template
+              </button>
+              <label className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 cursor-pointer">
+                Upload JSON
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleJsonFileChange}
+                  className="hidden"
+                />
+              </label>
+              <button
+                onClick={handleApplyJson}
+                className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Apply JSON To Form
+              </button>
+            </div>
+
+            <Textarea
+              label="Brand JSON"
+              value={jsonEditor}
+              onChange={setJsonEditor}
+              rows={16}
+              className="font-mono"
+              placeholder="Paste a brand profile JSON object here"
+            />
+
+            <p className="text-xs text-gray-500">
+              This matches the JSON structure used by <code>templates/brand-profile.template.json</code>
+              {" "}and the <code>brandProfile</code> section inside <code>templates/tenant-seed.template.json</code>.
+            </p>
+
+            {jsonNotice && (
+              <p
+                className={`text-sm ${
+                  jsonNotice.tone === "error"
+                    ? "text-red-600"
+                    : jsonNotice.tone === "success"
+                    ? "text-green-600"
+                    : "text-gray-500"
+                }`}
+              >
+                {jsonNotice.message}
+              </p>
+            )}
+          </div>
+        </Section>
+
         {/* Business Identity */}
         <Section title="Business Identity" description="Core information about your business.">
           <div className="grid grid-cols-2 gap-4">
@@ -175,6 +358,61 @@ export default function BrandSettingsPage() {
             <Input label="Website" value={form.website} onChange={(v) => updateField("website", v)} />
             <Input label="Email" value={form.email} onChange={(v) => updateField("email", v)} />
             <Input label="Phone" value={form.phone} onChange={(v) => updateField("phone", v)} />
+          </div>
+        </Section>
+
+        <Section
+          title="Call Languages"
+          description="Control the assistant's default call language and whether it should adapt to the caller's spoken language."
+        >
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input
+                label="Primary Language"
+                value={assistantForm.primaryLanguage}
+                onChange={(v) => updateAssistantField("primaryLanguage", v)}
+                placeholder="en, en-IN, es, fr, hi"
+              />
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <label className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={assistantForm.multilingualEnabled}
+                    onChange={(e) => updateAssistantField("multilingualEnabled", e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-gray-900">
+                      Adapt to caller language
+                    </span>
+                    <span className="mt-1 block text-sm text-gray-500">
+                      When enabled, the assistant will try to follow the language spoken by the caller after speech is detected.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500">
+              Use a language code like <code>en</code>, <code>en-IN</code>, <code>es</code>, <code>fr</code>, or <code>hi</code>.
+              When adaptation is off, the assistant stays in the primary language.
+            </p>
+
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleSaveAssistant}
+                disabled={assistantMutation.isPending || !assistantForm.primaryLanguage.trim()}
+                className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {assistantMutation.isPending ? "Saving..." : "Save Call Language Settings"}
+              </button>
+              {assistantMutation.isSuccess && (
+                <p className="text-green-600 text-sm">Call language settings saved successfully.</p>
+              )}
+              {assistantMutation.isError && (
+                <p className="text-red-600 text-sm">Failed to save: {assistantErrorMessage}</p>
+              )}
+            </div>
           </div>
         </Section>
 
@@ -333,7 +571,21 @@ function Input({ label, value, onChange, placeholder, className }: Readonly<{ la
   );
 }
 
-function Textarea({ label, value, onChange, placeholder, className }: Readonly<{ label: string; value: string; onChange: (v: string) => void; placeholder?: string; className?: string }>) {
+function Textarea({
+  label,
+  value,
+  onChange,
+  placeholder,
+  className,
+  rows = 3,
+}: Readonly<{
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+  rows?: number;
+}>) {
   return (
     <div className={className}>
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -341,7 +593,7 @@ function Textarea({ label, value, onChange, placeholder, className }: Readonly<{
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        rows={3}
+        rows={rows}
         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
       />
     </div>

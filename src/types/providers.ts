@@ -63,7 +63,7 @@ export interface MediaStreamConfig {
 // ─── STT Provider ───
 
 export interface STTProvider {
-  readonly name: 'deepgram' | 'groq';
+  readonly name: 'deepgram' | 'groq' | 'openai';
 
   /** Open a streaming STT session */
   createStream(options: STTStreamOptions): STTStream;
@@ -101,7 +101,7 @@ export interface TranscriptResult {
 // ─── TTS Provider ───
 
 export interface TTSProvider {
-  readonly name: 'groq';
+  readonly name: 'groq' | 'openai';
 
   /** Convert text to audio */
   synthesize(options: TTSOptions): Promise<Buffer>;

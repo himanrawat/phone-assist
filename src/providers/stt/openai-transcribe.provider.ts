@@ -6,8 +6,10 @@ import type {
 import { env } from '../../config/env.js';
 import { ChunkedUploadSTTStream } from './chunked-upload-stream.js';
 
-export class GroqWhisperProvider implements STTProvider {
-  readonly name = 'groq' as const;
+const DEFAULT_OPENAI_STT_MODEL = 'gpt-4o-mini-transcribe';
+
+export class OpenAITranscribeProvider implements STTProvider {
+  readonly name = 'openai' as const;
 
   createStream(options: STTStreamOptions = {}): STTStream {
     return new ChunkedUploadSTTStream(options, {
@@ -16,30 +18,28 @@ export class GroqWhisperProvider implements STTProvider {
         const formData = new FormData();
 
         formData.append('file', new Blob([audioWaveFile], { type: 'audio/wav' }), 'audio.wav');
-        formData.append('model', streamOptions.model || 'whisper-large-v3-turbo');
-        formData.append('response_format', 'json');
+        formData.append('model', streamOptions.model || DEFAULT_OPENAI_STT_MODEL);
+        formData.append('response_format', 'text');
 
         if (streamOptions.language) {
           formData.append('language', streamOptions.language);
         }
 
-        const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${env.GROQ_API_KEY}`,
+            Authorization: `Bearer ${env.OPENAI_API_KEY}`,
           },
           body: formData,
         });
 
         if (!response.ok) {
-          throw new Error(`Groq Whisper STT failed: ${response.status} ${await response.text()}`);
+          throw new Error(`OpenAI STT failed: ${response.status} ${await response.text()}`);
         }
 
-        const data = await response.json() as { text?: string };
-
         return {
-          text: data.text || '',
-          confidence: 0.85,
+          text: await response.text(),
+          confidence: 0.9,
           language: streamOptions.language,
         };
       },

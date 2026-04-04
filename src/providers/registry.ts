@@ -10,7 +10,9 @@ import { providerConfigService } from '../services/provider/provider-config.serv
 import { TwilioProvider } from './telephony/twilio.provider.js';
 import { DeepgramProvider } from './stt/deepgram.provider.js';
 import { GroqWhisperProvider } from './stt/groq-whisper.provider.js';
+import { OpenAITranscribeProvider } from './stt/openai-transcribe.provider.js';
 import { GroqOrpheusProvider } from './tts/groq-orpheus.provider.js';
+import { OpenAITTSProvider } from './tts/openai-tts.provider.js';
 import { GroqLLMProvider } from '../services/llm/groq.provider.js';
 
 /**
@@ -47,6 +49,9 @@ function getSTTInstance(name: string): STTProvider {
       case 'groq':
         instances.stt.set(name, new GroqWhisperProvider());
         break;
+      case 'openai':
+        instances.stt.set(name, new OpenAITranscribeProvider());
+        break;
       default:
         throw new Error(`Unknown STT provider: ${name}`);
     }
@@ -59,6 +64,9 @@ function getTTSInstance(name: string): TTSProvider {
     switch (name) {
       case 'groq':
         instances.tts.set(name, new GroqOrpheusProvider());
+        break;
+      case 'openai':
+        instances.tts.set(name, new OpenAITTSProvider());
         break;
       default:
         throw new Error(`Unknown TTS provider: ${name}`);
@@ -100,10 +108,10 @@ export const providerRegistry = {
     return getSTTInstance(name);
   },
 
-  /** Get TTS provider (currently only Groq Orpheus) */
-  tts(): TTSProvider {
+  /** Get TTS provider */
+  tts(nameOverride?: string | null): TTSProvider {
     const { tts } = providerConfigService.getGlobalConfig();
-    return getTTSInstance(tts);
+    return getTTSInstance(nameOverride || tts);
   },
 
   /** Get LLM provider (currently only Groq) */

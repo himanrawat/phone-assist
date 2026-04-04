@@ -3,8 +3,8 @@ import { env } from '../../config/env.js';
 import { providerConfig } from '../../db/schema.js';
 
 type TelephonyProviderName = 'twilio';
-type SttProviderName = 'deepgram' | 'groq';
-type TtsProviderName = 'groq';
+type SttProviderName = 'deepgram' | 'groq' | 'openai';
+type TtsProviderName = 'groq' | 'openai';
 type LlmProviderName = 'groq';
 
 export interface GlobalProviderConfig {
@@ -26,13 +26,15 @@ function sanitizeTelephonyProvider(value: string | undefined): TelephonyProvider
 }
 
 function sanitizeSttProvider(value: string | undefined): SttProviderName {
-  return value === 'groq' || value === 'deepgram'
+  return value === 'groq' || value === 'deepgram' || value === 'openai'
     ? value
     : DEFAULT_GLOBAL_PROVIDER_CONFIG.stt;
 }
 
 function sanitizeTtsProvider(value: string | undefined): TtsProviderName {
-  return value === 'groq' ? value : DEFAULT_GLOBAL_PROVIDER_CONFIG.tts;
+  return value === 'groq' || value === 'openai'
+    ? value
+    : DEFAULT_GLOBAL_PROVIDER_CONFIG.tts;
 }
 
 function sanitizeLlmProvider(value: string | undefined): LlmProviderName {
@@ -82,6 +84,7 @@ class ProviderConfigService {
   async updateGlobalConfig(update: {
     telephonyProvider?: TelephonyProviderName;
     sttProvider?: SttProviderName;
+    ttsProvider?: TtsProviderName;
   }) {
     const writes: Promise<unknown>[] = [];
 
@@ -109,12 +112,25 @@ class ProviderConfigService {
       );
     }
 
+    if (update.ttsProvider) {
+      writes.push(
+        db
+          .insert(providerConfig)
+          .values({ key: 'tts', provider: update.ttsProvider })
+          .onConflictDoUpdate({
+            target: providerConfig.key,
+            set: { provider: update.ttsProvider, updatedAt: new Date() },
+          })
+      );
+    }
+
     await Promise.all(writes);
 
     this.cache = {
       ...this.cache,
       telephony: update.telephonyProvider ?? this.cache.telephony,
       stt: update.sttProvider ?? this.cache.stt,
+      tts: update.ttsProvider ?? this.cache.tts,
     };
 
     return this.getGlobalConfig();
