@@ -15,8 +15,17 @@ export default function PlatformLayout({
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && (!user || !user.platformRole)) {
-      router.replace("/admin/dashboard");
+    if (isLoading) {
+      return;
+    }
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    if (!user.platformRole) {
+      router.replace("/app/dashboard");
     }
   }, [user, isLoading, router]);
 

@@ -12,6 +12,9 @@ import type {
   User,
   TenantContext,
   Membership,
+  TenantSubscription,
+  EffectiveEntitlements,
+  TenantUsageSummary,
 } from "@phone-assistant/contracts";
 import { auth as authApi } from "./api";
 
@@ -19,12 +22,23 @@ interface AuthState {
   user: User | null;
   tenant: TenantContext | null;
   memberships: Membership[];
+  subscription: TenantSubscription | null;
+  entitlements: EffectiveEntitlements | null;
+  allowedLanguages: string[];
+  usage: TenantUsageSummary | null;
   isLoading: boolean;
   error: string | null;
 }
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
+  register: (input: {
+    email: string;
+    password: string;
+    name: string;
+    businessName: string;
+    timezone?: string;
+  }) => Promise<void>;
   logout: () => Promise<void>;
   switchTenant: (tenantId: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -32,11 +46,15 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [state, setState] = useState<AuthState>({
     user: null,
     tenant: null,
     memberships: [],
+    subscription: null,
+    entitlements: null,
+    allowedLanguages: [],
+    usage: null,
     isLoading: true,
     error: null,
   });
@@ -48,6 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: res.data.user,
         tenant: res.data.tenant,
         memberships: res.data.memberships,
+        subscription: res.data.subscription,
+        entitlements: res.data.entitlements,
+        allowedLanguages: res.data.allowedLanguages,
+        usage: res.data.usage,
         isLoading: false,
         error: null,
       });
@@ -56,6 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: null,
         tenant: null,
         memberships: [],
+        subscription: null,
+        entitlements: null,
+        allowedLanguages: [],
+        usage: null,
         isLoading: false,
         error: null,
       });
@@ -73,6 +99,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: res.data.user,
         tenant: res.data.tenant,
         memberships: res.data.memberships,
+        subscription: res.data.subscription,
+        entitlements: res.data.entitlements,
+        allowedLanguages: res.data.allowedLanguages,
+        usage: res.data.usage,
+        isLoading: false,
+        error: null,
+      });
+    },
+    []
+  );
+
+  const register = useCallback(
+    async (input: {
+      email: string;
+      password: string;
+      name: string;
+      businessName: string;
+      timezone?: string;
+    }) => {
+      const res = await authApi.register(input);
+      setState({
+        user: res.data.user,
+        tenant: res.data.tenant,
+        memberships: res.data.memberships,
+        subscription: res.data.subscription,
+        entitlements: res.data.entitlements,
+        allowedLanguages: res.data.allowedLanguages,
+        usage: res.data.usage,
         isLoading: false,
         error: null,
       });
@@ -86,6 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: null,
       tenant: null,
       memberships: [],
+      subscription: null,
+      entitlements: null,
+      allowedLanguages: [],
+      usage: null,
       isLoading: false,
       error: null,
     });
@@ -101,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ ...state, login, logout, switchTenant, refresh }}
+      value={{ ...state, login, register, logout, switchTenant, refresh }}
     >
       {children}
     </AuthContext.Provider>

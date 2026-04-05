@@ -71,34 +71,43 @@ const plans = [
 
 export default function PricingPage() {
   return (
-    <div className="py-20">
+    <div className="py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        {/* Header */}
         <div className="mx-auto max-w-2xl text-center">
-          <h1 className="font-heading text-4xl font-bold">Pricing</h1>
-          <p className="mt-3 text-lg text-[var(--muted-foreground)]">
+          <p className="label-tech mb-4">Plans</p>
+          <h1 className="font-heading text-4xl font-bold sm:text-5xl">
+            Pricing
+          </h1>
+          <p className="mt-4 text-lg font-light text-muted-foreground">
             Choose the plan that fits your business. All plans include a 14-day
             free trial.
           </p>
         </div>
 
         {/* Plan cards */}
-        <div className="mt-12 grid gap-6 lg:grid-cols-4">
+        <div className="mt-14 grid gap-6 lg:grid-cols-4">
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`rounded-xl border p-6 ${
+              className={`rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 ${
                 plan.highlight
-                  ? "border-[var(--primary)] shadow-lg ring-1 ring-[var(--primary)]"
-                  : ""
+                  ? "border-brand-green ring-1 ring-brand-green bg-card"
+                  : "border-border bg-card"
               }`}
+              style={{
+                boxShadow: plan.highlight
+                  ? "var(--shadow-forest)"
+                  : "var(--shadow-subtle)",
+              }}
             >
               {plan.highlight && (
-                <span className="mb-3 inline-flex rounded-full bg-[var(--primary)] px-3 py-0.5 text-xs font-medium text-white">
+                <span className="label-tech mb-4 inline-block text-brand-green">
                   Most Popular
                 </span>
               )}
               <h2 className="font-heading text-xl font-bold">{plan.name}</h2>
-              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+              <p className="mt-1 text-sm text-muted-foreground">
                 {plan.description}
               </p>
               <div className="mt-4">
@@ -106,7 +115,7 @@ export default function PricingPage() {
                   {plan.price}
                 </span>
                 {plan.price !== "Contact us" && (
-                  <span className="text-sm text-[var(--muted-foreground)]">
+                  <span className="text-sm text-muted-foreground">
                     /month
                   </span>
                 )}
@@ -114,15 +123,16 @@ export default function PricingPage() {
 
               <ul className="mt-6 space-y-3">
                 {Object.entries(plan.features).map(([feature, value]) => (
-                  <li key={feature} className="flex items-center gap-2 text-sm">
+                  <li
+                    key={feature}
+                    className="flex items-center gap-2 text-sm"
+                  >
                     {value === false ? (
-                      <XIcon className="size-4 text-[var(--muted-foreground)]" />
+                      <XIcon className="size-4 shrink-0 text-muted-foreground" />
                     ) : (
-                      <CheckIcon className="size-4 text-green-600" />
+                      <CheckIcon className="size-4 shrink-0 text-brand-green" />
                     )}
-                    <span className="text-[var(--muted-foreground)]">
-                      {feature}:
-                    </span>{" "}
+                    <span className="text-muted-foreground">{feature}:</span>{" "}
                     <span className="font-medium">
                       {value === true
                         ? "Yes"
@@ -136,24 +146,29 @@ export default function PricingPage() {
 
               <Link
                 href="/signup"
-                className={`mt-6 block rounded-md py-2.5 text-center text-sm font-medium ${
+                className={`mt-6 block rounded-full py-2.5 text-center text-sm font-medium transition-all ${
                   plan.highlight
-                    ? "bg-[var(--primary)] text-white hover:opacity-90"
-                    : "border hover:bg-[var(--muted)]"
+                    ? "bg-brand-green text-brand-forest hover:opacity-90"
+                    : "border border-border hover:bg-accent"
                 }`}
               >
-                {plan.price === "Contact us" ? "Contact Sales" : "Start Free Trial"}
+                {plan.price === "Contact us"
+                  ? "Contact Sales"
+                  : "Start Free Trial"}
               </Link>
             </div>
           ))}
         </div>
 
         {/* FAQ */}
-        <div className="mx-auto mt-20 max-w-2xl">
-          <h2 className="text-center font-heading text-2xl font-bold">
-            Frequently Asked Questions
-          </h2>
-          <div className="mt-8 space-y-6">
+        <div className="mx-auto mt-24 max-w-2xl">
+          <div className="text-center">
+            <p className="label-tech mb-4">FAQ</p>
+            <h2 className="font-heading text-2xl font-bold sm:text-3xl">
+              Frequently Asked Questions
+            </h2>
+          </div>
+          <div className="mt-10 space-y-4">
             <FaqItem
               q="Can I switch plans later?"
               a="Yes, you can upgrade or downgrade at any time. Changes take effect at your next billing cycle."
@@ -177,11 +192,14 @@ export default function PricingPage() {
   );
 }
 
-function FaqItem({ q, a }: { q: string; a: string }) {
+function FaqItem({ q, a }: Readonly<{ q: string; a: string }>) {
   return (
-    <div className="rounded-lg border p-4">
-      <h3 className="font-heading text-sm font-semibold">{q}</h3>
-      <p className="mt-2 text-sm text-[var(--muted-foreground)]">{a}</p>
+    <div
+      className="rounded-2xl border border-border bg-card p-5 transition-all hover:-translate-y-0.5"
+      style={{ boxShadow: "var(--shadow-subtle)" }}
+    >
+      <h3 className="text-sm font-semibold">{q}</h3>
+      <p className="mt-2 text-sm font-light text-muted-foreground">{a}</p>
     </div>
   );
 }

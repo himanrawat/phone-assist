@@ -18,6 +18,7 @@ import {
   loadTenantSeedConfig,
   resolveAssistantSeedConfig,
 } from '../shared/db/seed-config.js';
+import { assignTenantSubscription, ensureDefaultPlans, getDefaultPlan } from '../modules/plans/plans.service.js';
 
 const DEFAULT_SEED_PASSWORD = DEFAULT_DEVELOPMENT_SEED_SECRET;
 
@@ -41,6 +42,7 @@ function requireRecord<T>(value: T | undefined, label: string): T {
 async function seed() {
   logger.info('Seeding database...');
   await ensureDatabaseSchema();
+  await ensureDefaultPlans();
 
   const seedConfig = await loadTenantSeedConfig();
   const assistantConfig = resolveAssistantSeedConfig(
@@ -127,6 +129,14 @@ async function seed() {
     .onConflictDoNothing();
 
   logger.info({ email: seededTenantAdmin.email }, 'Upserted tenant admin');
+
+  const defaultPlan = await getDefaultPlan();
+  await assignTenantSubscription({
+    tenantId: seededTenant.id,
+    planId: defaultPlan.id,
+    createdBy: seededAdmin.id,
+  });
+  logger.info({ tenant: seededTenant.slug, plan: defaultPlan.slug }, 'Assigned default subscription');
 
   await db
     .delete(tenantWorkingHours)

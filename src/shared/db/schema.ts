@@ -30,6 +30,19 @@ export const invitationStatusEnum = pgEnum('invitation_status', [
   'revoked',
 ]);
 
+export const tenantSubscriptionStatusEnum = pgEnum('tenant_subscription_status', [
+  'trial',
+  'active',
+  'suspended',
+  'cancelled',
+]);
+
+export const tenantUpgradeRequestStatusEnum = pgEnum('tenant_upgrade_request_status', [
+  'open',
+  'resolved',
+  'dismissed',
+]);
+
 export const callDirectionEnum = pgEnum('call_direction', ['inbound', 'outbound']);
 
 export const callStatusEnum = pgEnum('call_status', [
@@ -130,6 +143,164 @@ export const tenantInvitations = pgTable(
     uniqueIndex('tenant_invitations_token_unique').on(table.token),
     uniqueIndex('tenant_invitations_tenant_email_unique').on(table.tenantId, table.email),
   ]
+);
+
+export const plans = pgTable(
+  'plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 120 }).notNull(),
+    slug: varchar('slug', { length: 100 }).notNull().unique(),
+    description: text('description'),
+    monthlyPriceCents: integer('monthly_price_cents').notNull().default(0),
+    currency: varchar('currency', { length: 8 }).notNull().default('USD'),
+    trialDays: integer('trial_days').notNull().default(0),
+    isActive: boolean('is_active').notNull().default(true),
+    isDefault: boolean('is_default').notNull().default(false),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [index('plans_sort_order_idx').on(table.sortOrder)]
+);
+
+export const planEntitlements = pgTable('plan_entitlements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  planId: uuid('plan_id')
+    .notNull()
+    .references(() => plans.id, { onDelete: 'cascade' })
+    .unique(),
+  maxAdminSeats: integer('max_admin_seats').notNull().default(1),
+  maxTeamMembers: integer('max_team_members').notNull().default(1),
+  maxPhoneNumbers: integer('max_phone_numbers').notNull().default(1),
+  includedMinutesPerPeriod: integer('included_minutes_per_period').notNull().default(0),
+  maxConcurrentCalls: integer('max_concurrent_calls').notNull().default(1),
+  maxSelectableLanguages: integer('max_selectable_languages').notNull().default(1),
+  planLanguagePool: jsonb('plan_language_pool').$type<string[]>().notNull().default([]),
+  dataRetentionDays: integer('data_retention_days').notNull().default(30),
+  apiAccess: boolean('api_access').notNull().default(false),
+  advancedAnalytics: boolean('advanced_analytics').notNull().default(false),
+  auditLogs: boolean('audit_logs').notNull().default(false),
+  outboundEnabled: boolean('outbound_enabled').notNull().default(true),
+  multilingualSupport: boolean('multilingual_support').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const tenantSubscriptions = pgTable(
+  'tenant_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .unique(),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => plans.id, { onDelete: 'restrict' }),
+    status: tenantSubscriptionStatusEnum('status').notNull().default('active'),
+    billingProvider: varchar('billing_provider', { length: 20 }).notNull().default('manual'),
+    currentPeriodStart: timestamp('current_period_start').notNull(),
+    currentPeriodEnd: timestamp('current_period_end').notNull(),
+    startedAt: timestamp('started_at').notNull().defaultNow(),
+    trialEndsAt: timestamp('trial_ends_at'),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('tenant_subscriptions_plan_idx').on(table.planId),
+    index('tenant_subscriptions_period_idx').on(table.currentPeriodStart, table.currentPeriodEnd),
+  ]
+);
+
+export const tenantSubscriptionOverrides = pgTable('tenant_subscription_overrides', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantSubscriptionId: uuid('tenant_subscription_id')
+    .notNull()
+    .references(() => tenantSubscriptions.id, { onDelete: 'cascade' })
+    .unique(),
+  maxAdminSeats: integer('max_admin_seats'),
+  maxTeamMembers: integer('max_team_members'),
+  maxPhoneNumbers: integer('max_phone_numbers'),
+  includedMinutesPerPeriod: integer('included_minutes_per_period'),
+  maxConcurrentCalls: integer('max_concurrent_calls'),
+  maxSelectableLanguages: integer('max_selectable_languages'),
+  dataRetentionDays: integer('data_retention_days'),
+  apiAccess: boolean('api_access'),
+  advancedAnalytics: boolean('advanced_analytics'),
+  auditLogs: boolean('audit_logs'),
+  outboundEnabled: boolean('outbound_enabled'),
+  multilingualSupport: boolean('multilingual_support'),
+  overageEnabled: boolean('overage_enabled'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const tenantLanguageAccess = pgTable(
+  'tenant_language_access',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    language: varchar('language', { length: 16 }).notNull(),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('tenant_language_access_unique').on(table.tenantId, table.language),
+    index('tenant_language_access_tenant_idx').on(table.tenantId),
+  ]
+);
+
+export const tenantUsageRollups = pgTable(
+  'tenant_usage_rollups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    tenantSubscriptionId: uuid('tenant_subscription_id')
+      .notNull()
+      .references(() => tenantSubscriptions.id, { onDelete: 'cascade' }),
+    periodStart: timestamp('period_start').notNull(),
+    periodEnd: timestamp('period_end').notNull(),
+    totalCalls: integer('total_calls').notNull().default(0),
+    totalDurationSec: integer('total_duration_sec').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('tenant_usage_rollups_period_unique').on(
+      table.tenantSubscriptionId,
+      table.periodStart,
+      table.periodEnd
+    ),
+    index('tenant_usage_rollups_tenant_idx').on(table.tenantId),
+  ]
+);
+
+export const tenantUpgradeRequests = pgTable(
+  'tenant_upgrade_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    tenantSubscriptionId: uuid('tenant_subscription_id').references(() => tenantSubscriptions.id, {
+      onDelete: 'set null',
+    }),
+    requestedPlanId: uuid('requested_plan_id').references(() => plans.id, { onDelete: 'set null' }),
+    requestedBy: uuid('requested_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    message: text('message'),
+    status: tenantUpgradeRequestStatusEnum('status').notNull().default('open'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [index('tenant_upgrade_requests_tenant_idx').on(table.tenantId)]
 );
 
 export const tenantWorkingHours = pgTable('tenant_working_hours', {

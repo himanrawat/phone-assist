@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { clearSessionCookie } from '../../shared/auth/session.js';
 import { requireAuth } from '../../shared/auth/guards.js';
+import { getTenantBillingContext } from '../plans/plans.service.js';
 import { authService } from './auth.service.js';
 import { loginSchema, registerSchema, switchTenantSchema } from './auth.schemas.js';
 
@@ -20,6 +21,10 @@ export async function authRoutes(fastify: FastifyInstance) {
           user: result.user,
           memberships: result.memberships,
           tenant: result.tenant,
+          subscription: result.subscription,
+          entitlements: result.entitlements,
+          allowedLanguages: result.allowedLanguages,
+          usage: result.usage,
         },
       });
   });
@@ -39,6 +44,10 @@ export async function authRoutes(fastify: FastifyInstance) {
           user: result.user,
           memberships: result.memberships,
           tenant: result.tenant,
+          subscription: result.subscription,
+          entitlements: result.entitlements,
+          allowedLanguages: result.allowedLanguages,
+          usage: result.usage,
         },
       });
   });
@@ -71,6 +80,10 @@ export async function authRoutes(fastify: FastifyInstance) {
         success: true,
         data: {
           tenant: result.tenant,
+          subscription: result.subscription,
+          entitlements: result.entitlements,
+          allowedLanguages: result.allowedLanguages,
+          usage: result.usage,
         },
       });
   });
@@ -78,11 +91,19 @@ export async function authRoutes(fastify: FastifyInstance) {
   fastify.get('/api/v1/auth/me', {
     preHandler: [requireAuth],
   }, async (request, reply) => {
+    const billingContext = request.tenant
+      ? await getTenantBillingContext(request.tenant.id)
+      : null;
+
     reply.send({
       data: {
         user: request.user,
         tenant: request.tenant,
         memberships: request.tenantMemberships,
+        subscription: billingContext?.subscription ?? null,
+        entitlements: billingContext?.entitlements ?? null,
+        allowedLanguages: billingContext?.allowedLanguages ?? [],
+        usage: billingContext?.usage ?? null,
       },
     });
   });

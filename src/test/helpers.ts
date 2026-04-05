@@ -9,16 +9,28 @@ import {
   brandProfiles,
   callMessages,
   calls,
-  contacts,
   phoneNumbers,
   providerConfig,
   tenantMembers,
-  tenantWorkingHours,
   tenants,
   users,
 } from '../shared/db/schema.js';
+import {
+  assignTenantSubscription,
+  ensureDefaultPlans,
+  getDefaultPlan,
+  listPlans,
+} from '../modules/plans/plans.service.js';
 
 const TEST_DB_URL = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/phone_assistant_test';
+
+function requireInserted<T>(value: T | undefined, entity: string) {
+  if (!value) {
+    throw new Error(`Failed to insert ${entity}.`);
+  }
+
+  return value;
+}
 
 function getAdminDatabaseUrl(databaseUrl: string) {
   const url = new URL(databaseUrl);
@@ -52,6 +64,13 @@ export async function resetDatabase() {
       call_messages,
       calls,
       contacts,
+      tenant_upgrade_requests,
+      tenant_usage_rollups,
+      tenant_language_access,
+      tenant_subscription_overrides,
+      tenant_subscriptions,
+      plan_entitlements,
+      plans,
       phone_numbers,
       tenant_working_hours,
       tenant_invitations,
@@ -74,6 +93,7 @@ export async function closeTestConnections() {
 }
 
 export async function seedProviderDefaults() {
+  await ensureDefaultPlans();
   await db.insert(providerConfig).values([
     { key: 'telephony', provider: 'twilio' },
     { key: 'stt', provider: 'deepgram' },
@@ -95,7 +115,7 @@ export async function createTenant(input?: Partial<{
     timezone: input?.timezone ?? 'UTC',
   }).returning();
 
-  return tenant!;
+  return requireInserted(tenant, 'tenant');
 }
 
 export async function createUser(input?: Partial<{
@@ -104,7 +124,7 @@ export async function createUser(input?: Partial<{
   name: string;
   platformRole: 'platform_super_admin' | 'platform_support' | null;
 }>) {
-  const password = input?.password ?? 'phone-assistant-dev';
+  const password = input?.password ?? `phone-assistant-${randomUUID()}`;
   const [user] = await db.insert(users).values({
     email: input?.email ?? `${randomUUID()}@example.com`,
     passwordHash: await hashPassword(password),
@@ -112,7 +132,7 @@ export async function createUser(input?: Partial<{
     platformRole: input?.platformRole ?? null,
   }).returning();
 
-  return { user: user!, password };
+  return { user: requireInserted(user, 'user'), password };
 }
 
 export async function addTenantMembership(input: {
@@ -124,6 +144,27 @@ export async function addTenantMembership(input: {
     userId: input.userId,
     tenantId: input.tenantId,
     role: input.role ?? 'tenant_admin',
+  });
+}
+
+export async function assignDefaultSubscription(tenantId: string) {
+  const defaultPlan = await getDefaultPlan();
+  return assignTenantSubscription({
+    tenantId,
+    planId: defaultPlan.id,
+  });
+}
+
+export async function assignSubscriptionBySlug(tenantId: string, slug: string) {
+  const plans = await listPlans();
+  const plan = plans.find((item) => item.slug === slug);
+  if (!plan) {
+    throw new Error(`Plan ${slug} not found`);
+  }
+
+  return assignTenantSubscription({
+    tenantId,
+    planId: plan.id,
   });
 }
 
@@ -145,7 +186,7 @@ export async function createCallRecord(input: {
     recordingUrl: input.recordingKey ? `/api/v1/calls/test/recording` : null,
   }).returning();
 
-  return call!;
+  return requireInserted(call, 'call');
 }
 
 export async function createCallMessage(callId: string, role: string, content: string) {
@@ -171,7 +212,7 @@ export async function createBrandProfile(tenantId: string) {
     escalationRules: [],
   }).returning();
 
-  return profile!;
+  return requireInserted(profile, 'brand profile');
 }
 
 export async function createAssistant(tenantId: string) {
@@ -181,7 +222,7 @@ export async function createAssistant(tenantId: string) {
     multilingualEnabled: false,
   }).returning();
 
-  return assistant!;
+  return requireInserted(assistant, 'assistant');
 }
 
 export async function createPhoneNumber(tenantId: string, number: string) {

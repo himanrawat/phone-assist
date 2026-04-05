@@ -1,9 +1,18 @@
 "use client";
 
 import { BoneyardFormPageSkeleton } from "@/components/boneyard-skeletons";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { platformProviders } from "@/lib/api";
-import { useState, useEffect } from "react";
+import { useEffect, useId, useState } from "react";
 import { SaveIcon, ServerIcon } from "lucide-react";
 
 const PROVIDER_OPTIONS = {
@@ -79,12 +88,13 @@ export default function ProvidersPage() {
         />
 
         {data?.data?.llm && (
-          <div className="rounded-lg bg-muted/50 p-4">
-            <p className="text-sm font-medium">LLM Provider</p>
-            <p className="text-sm text-muted-foreground">
+          <Alert>
+            <ServerIcon />
+            <AlertTitle>LLM Provider</AlertTitle>
+            <AlertDescription>
               Current: <span className="font-mono">{data.data.llm}</span>
-            </p>
-          </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         <div className="flex items-center gap-4 border-t pt-4">
@@ -110,24 +120,35 @@ function ProviderSelect({
   options,
   onChange,
   icon: Icon,
-}: {
+}: Readonly<{
   label: string;
   value: string;
   options: string[];
   onChange: (v: string) => void;
   icon: React.ElementType;
-}) {
+}>) {
+  const selectId = useId();
+
   return (
     <div className="space-y-2">
-      <label className="flex items-center gap-2 text-sm font-medium">
+      <label htmlFor={selectId} className="flex items-center gap-2 text-sm font-medium">
         <Icon className="size-4 text-muted-foreground" />
         {label}
       </label>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="input-field">
-        {options.map((opt) => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
+      <Select id={selectId} value={value} onValueChange={(nextValue) => nextValue && onChange(nextValue)}>
+        <SelectTrigger className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {options.map((opt) => (
+              <SelectItem key={opt} value={opt}>
+                {opt}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </div>
   );
 }

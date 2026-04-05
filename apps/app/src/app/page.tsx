@@ -20,9 +20,9 @@ export default function RootPage() {
     if (user.platformRole) {
       router.replace("/platform/dashboard");
     } else if (tenant) {
-      router.replace("/admin/dashboard");
+      router.replace("/app/dashboard");
     } else {
-      router.replace("/admin/dashboard");
+      router.replace("/login");
     }
   }, [user, tenant, isLoading, router]);
 

@@ -8,6 +8,7 @@ import {
   UsersIcon,
   ServerIcon,
   ActivityIcon,
+  ArrowRightIcon,
 } from "lucide-react";
 
 export default function PlatformDashboard() {
@@ -21,50 +22,66 @@ export default function PlatformDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Header */}
       <div>
+        <p className="label-tech mb-2">Super Admin</p>
         <h1 className="font-heading text-2xl font-bold">Platform Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-1 text-sm font-light text-muted-foreground">
           Overview of the entire platform
         </p>
       </div>
 
+      {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Tenants" value={tenants.length} icon={BuildingIcon} />
         <StatCard title="Active Tenants" value={activeTenants} icon={UsersIcon} />
         <StatCard title="Providers" value="Configured" icon={ServerIcon} />
-        <StatCard title="System Status" value="Healthy" icon={ActivityIcon} />
+        <StatCard title="System Status" value="Healthy" icon={ActivityIcon} accent />
       </div>
 
+      {/* Recent Tenants table */}
       <div>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-heading text-lg font-semibold">Recent Tenants</h2>
-          <Link href="/platform/tenants" className="text-sm text-primary hover:underline">
-            View all
+          <Link
+            href="/platform/tenants"
+            className="inline-flex items-center gap-1 text-sm font-medium text-brand-green transition-colors hover:text-brand-dark-green"
+          >
+            View all <ArrowRightIcon className="size-3" />
           </Link>
         </div>
-        <div className="overflow-hidden rounded-lg border">
+
+        <div
+          className="overflow-hidden rounded-2xl border border-border bg-card"
+          style={{ boxShadow: "var(--shadow-subtle)" }}
+        >
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">Name</th>
-                <th className="px-4 py-3 text-left font-medium">Slug</th>
-                <th className="px-4 py-3 text-left font-medium">Industry</th>
-                <th className="px-4 py-3 text-left font-medium">Status</th>
-                <th className="px-4 py-3 text-left font-medium">Created</th>
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Slug</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Industry</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Created</th>
               </tr>
             </thead>
             <tbody>
               {tenants.slice(0, 5).map((t) => (
-                <tr key={t.id} className="border-b last:border-0 hover:bg-muted/30">
+                <tr key={t.id} className="border-b border-border/50 last:border-0 transition-colors hover:bg-muted/20">
                   <td className="px-4 py-3 font-medium">
-                    <Link href={`/platform/tenants/${t.id}`} className="hover:text-primary hover:underline">
+                    <Link href={`/platform/tenants/${t.id}`} className="transition-colors hover:text-brand-green">
                       {t.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs">{t.slug}</td>
-                  <td className="px-4 py-3 text-xs">{t.industry ?? "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{t.slug}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{t.industry ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${t.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      t.isActive
+                        ? "bg-brand-green/10 text-brand-green"
+                        : "bg-destructive/10 text-destructive"
+                    }`}>
+                      <span className={`size-1.5 rounded-full ${t.isActive ? "bg-brand-green" : "bg-destructive"}`} />
                       {t.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
@@ -74,7 +91,7 @@ export default function PlatformDashboard() {
                 </tr>
               ))}
               {tenants.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No tenants</td></tr>
+                <tr><td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">No tenants yet</td></tr>
               )}
             </tbody>
           </table>
@@ -84,18 +101,37 @@ export default function PlatformDashboard() {
   );
 }
 
-function StatCard({ title, value, icon: Icon }: { title: string; value: string | number; icon: React.ElementType }) {
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  accent,
+}: Readonly<{
+  title: string;
+  value: string | number;
+  icon: React.ElementType;
+  accent?: boolean;
+}>) {
   return (
-    <div className="rounded-lg border bg-card p-6">
+    <div
+      className="rounded-2xl border border-border bg-card p-6 transition-all duration-300 hover:-translate-y-0.5"
+      style={{ boxShadow: "var(--shadow-subtle)" }}
+    >
       <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <Icon className="size-5" />
+        <div className="flex size-10 items-center justify-center rounded-xl bg-brand-green/10">
+          <Icon className="size-5 text-brand-green" />
         </div>
         <div>
           <p className="text-sm text-muted-foreground">{title}</p>
           <p className="font-heading text-2xl font-bold">{value}</p>
         </div>
       </div>
+      {accent && (
+        <div className="mt-3 flex items-center gap-1.5">
+          <span className="inline-block size-2 rounded-full bg-brand-green animate-pulse" />
+          <span className="text-xs text-muted-foreground">All systems operational</span>
+        </div>
+      )}
     </div>
   );
 }

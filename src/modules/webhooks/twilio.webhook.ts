@@ -5,6 +5,7 @@ import { createAssistantDefaultsForBrand } from '../../lib/brand-profile.js';
 import { providerRegistry } from '../providers/registry.js';
 import { callService } from '../calls/calls.service.js';
 import { normalizeLanguageTag } from '../calls/call-language.js';
+import { assertTenantCanStartCall, getTenantBillingContext } from '../plans/plans.service.js';
 
 export async function twilioWebhookRoutes(fastify: FastifyInstance) {
   fastify.post('/webhooks/twilio/voice', async (request, reply) => {
@@ -25,6 +26,17 @@ export async function twilioWebhookRoutes(fastify: FastifyInstance) {
     }
 
     const { tenant } = result;
+    try {
+      await assertTenantCanStartCall(tenant.id, { direction: 'inbound' });
+    } catch (error) {
+      logger.warn({ err: error, tenantId: tenant.id }, 'Inbound call rejected by entitlement checks');
+      reply.type('text/xml').send(
+        '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Sorry, this service is temporarily unavailable for this account.</Say><Hangup/></Response>'
+      );
+      return;
+    }
+
+    const billingContext = await getTenantBillingContext(tenant.id);
     const assistantConfig = await callService.getAssistantConfig(tenant.id);
     const contact = await callService.findOrCreateContact(tenant.id, callerNumber);
     if (!contact) {
@@ -48,8 +60,13 @@ export async function twilioWebhookRoutes(fastify: FastifyInstance) {
 
     const brandProfile = await callService.getBrandProfile(tenant.id);
     const brandAssistantDefaults = brandProfile ? createAssistantDefaultsForBrand(brandProfile) : null;
-    const primaryLanguage = normalizeLanguageTag(assistantConfig?.primaryLanguage);
-    const multilingualEnabled = assistantConfig?.multilingualEnabled ?? false;
+    const allowedLanguages = billingContext.allowedLanguages;
+    const requestedPrimaryLanguage = normalizeLanguageTag(assistantConfig?.primaryLanguage);
+    const primaryLanguage = allowedLanguages.includes(requestedPrimaryLanguage)
+      ? requestedPrimaryLanguage
+      : allowedLanguages[0] ?? requestedPrimaryLanguage;
+    const multilingualEnabled = billingContext.entitlements.multilingualSupport
+      && (assistantConfig?.multilingualEnabled ?? false);
     const voiceId = assistantConfig?.voiceId || 'hannah';
     const greetingMessage = assistantConfig?.greetingMessage || brandAssistantDefaults?.greetingMessage;
     const systemPrompt = callService.buildSystemPrompt({
@@ -58,6 +75,7 @@ export async function twilioWebhookRoutes(fastify: FastifyInstance) {
       systemPrompt: assistantConfig?.systemPrompt,
       primaryLanguage,
       multilingualEnabled,
+      allowedLanguages,
       contactName: contact.name,
       isVip: contact.isVip,
       brand: brandProfile,
@@ -76,6 +94,7 @@ export async function twilioWebhookRoutes(fastify: FastifyInstance) {
       systemPrompt,
       primaryLanguage,
       multilingualEnabled,
+      allowedLanguages,
       activeLanguage: primaryLanguage,
       voiceId,
       greetingMessage,

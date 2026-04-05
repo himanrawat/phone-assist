@@ -1,4 +1,9 @@
 import type { PlatformRole, TenantRole } from "../enums";
+import type {
+  EffectiveEntitlements,
+  TenantSubscription,
+  TenantUsageSummary,
+} from "./plans";
 
 export interface User {
   id: string;
@@ -28,6 +33,10 @@ export interface AuthMeResponse {
     user: User;
     tenant: TenantContext | null;
     memberships: Membership[];
+    subscription: TenantSubscription | null;
+    entitlements: EffectiveEntitlements | null;
+    allowedLanguages: string[];
+    usage: TenantUsageSummary | null;
   };
 }
 
@@ -37,6 +46,10 @@ export interface AuthLoginResponse {
     user: User;
     memberships: Membership[];
     tenant: TenantContext | null;
+    subscription: TenantSubscription | null;
+    entitlements: EffectiveEntitlements | null;
+    allowedLanguages: string[];
+    usage: TenantUsageSummary | null;
   };
 }
 

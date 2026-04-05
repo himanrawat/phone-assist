@@ -4,7 +4,8 @@ import { BoneyardAuthSkeleton } from "@/components/boneyard-skeletons";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { PhoneIcon } from "lucide-react";
+import { PhoneIcon, AlertCircleIcon } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 function LoginForm() {
   const { login } = useAuth();
@@ -17,8 +18,7 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submitLogin() {
     setError("");
     setLoading(true);
 
@@ -35,69 +35,89 @@ function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-6 px-4">
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <PhoneIcon className="size-6" />
-          </div>
-          <h1 className="font-heading text-2xl font-bold">Phone Assistant</h1>
-          <p className="text-sm text-muted-foreground">
-            Sign in to your account
-          </p>
-        </div>
+    <div className="flex min-h-svh items-center justify-center bg-background px-4">
+      {/* Glow effect */}
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 size-[500px] rounded-full bg-brand-green/8 blur-[120px]" />
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
+      <div className="relative w-full max-w-sm">
+        {/* Card */}
+        <div
+          className="rounded-2xl border border-border bg-card p-8"
+          style={{ boxShadow: "var(--shadow-forest)" }}
+        >
+          {/* Logo & title */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-brand-green">
+              <PhoneIcon className="size-6 text-brand-forest" />
             </div>
-          )}
-
-          <div className="space-y-2">
-            <label
-              htmlFor="email"
-              className="text-sm font-medium leading-none"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="you@example.com"
-              required
-            />
+            <h1 className="font-heading text-2xl font-bold">Phone Assistant</h1>
+            <p className="text-sm text-muted-foreground">
+              Sign in to your account
+            </p>
           </div>
 
-          <div className="space-y-2">
-            <label
-              htmlFor="password"
-              className="text-sm font-medium leading-none"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="Enter your password"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+          {/* Form */}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitLogin();
+            }}
+            className="mt-8 space-y-4"
           >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircleIcon className="size-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-2">
+              <label
+                htmlFor="email"
+                className="text-sm font-medium"
+              >
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-field"
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="password"
+                className="text-sm font-medium"
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input-field"
+                placeholder="Enter your password"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-pill-primary w-full justify-center"
+            >
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

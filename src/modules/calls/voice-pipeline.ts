@@ -21,7 +21,6 @@ import {
 export class VoicePipeline {
   private sttStream: STTStream | null = null;
   private isProcessing = false;
-  private pendingTranscript = '';
   private queuedTranscript: TranscriptResult | null = null;
   private readonly pendingPlaybackMarks = new Set<string>();
   private playbackMarkCounter = 0;
@@ -53,6 +52,7 @@ export class VoicePipeline {
       language: resolveSttLanguage({
         primaryLanguage: this.callState.primaryLanguage,
         multilingualEnabled: this.callState.multilingualEnabled,
+        allowedLanguages: this.callState.allowedLanguages,
         providerName: requestedSttProvider,
       }),
     });
@@ -85,7 +85,6 @@ export class VoicePipeline {
 
   private async handleTranscript(result: TranscriptResult) {
     if (!result.isFinal) {
-      this.pendingTranscript = result.text;
       if (result.text.trim()) {
         this.interruptAssistantTurn('caller started speaking');
       }
@@ -104,7 +103,6 @@ export class VoicePipeline {
     }
 
     this.isProcessing = true;
-    this.pendingTranscript = '';
     const turnVersion = this.interactionVersion;
     const turnStartedAt = Date.now();
 

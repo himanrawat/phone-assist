@@ -30,7 +30,13 @@ export {
 } from "./schemas/brand";
 export { contactUpsertSchema } from "./schemas/contacts";
 export { tenantCreateSchema, tenantUpdateSchema } from "./schemas/tenants";
-export { planCreateSchema } from "./schemas/plans";
+export {
+  planEntitlementsSchema,
+  planUpsertSchema,
+  tenantSubscriptionAssignSchema,
+  tenantLanguageAccessSchema,
+  upgradeRequestSchema,
+} from "./schemas/plans";
 export { assistantUpdateSchema } from "./schemas/assistant";
 export {
   workingHourSchema,
@@ -84,6 +90,21 @@ export type {
   ContactCreateResponse,
 } from "./types/contacts";
 export type { Plan } from "./types/plans";
+export type {
+  PlanEntitlements,
+  EffectiveEntitlements,
+  TenantSubscription,
+  TenantUsageSummary,
+  TenantBillingContext,
+  UpgradeRequest,
+  PlanListResponse,
+  PlanSaveResponse,
+  TenantBillingResponse,
+  TenantUsageResponse,
+  TenantSubscriptionResponse,
+  TenantLanguageAccessResponse,
+  UpgradeRequestResponse,
+} from "./types/plans";
 export type {
   AssistantSettings,
   AssistantResponse,

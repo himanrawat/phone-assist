@@ -21,14 +21,22 @@ export const API = {
     team: "/api/v1/admin/team",
     teamInvite: "/api/v1/admin/team/invite",
     phoneNumbers: "/api/v1/admin/phone-numbers",
+    billing: "/api/v1/admin/billing",
+    usage: "/api/v1/admin/usage",
+    upgradeRequest: "/api/v1/admin/billing/upgrade-request",
   },
   platform: {
     tenants: "/api/v1/platform/tenants",
     tenantDetail: (id: string) => `/api/v1/platform/tenants/${id}`,
     tenantBrand: (id: string) => `/api/v1/platform/tenants/${id}/brand`,
     tenantAssistant: (id: string) => `/api/v1/platform/tenants/${id}/assistant`,
+    tenantSubscription: (id: string) => `/api/v1/platform/tenants/${id}/subscription`,
+    tenantLanguages: (id: string) => `/api/v1/platform/tenants/${id}/languages`,
+    tenantAdmins: (id: string) => `/api/v1/platform/tenants/${id}/admins`,
     tenantProviders: (id: string) =>
       `/api/v1/platform/tenants/${id}/providers`,
     providers: "/api/v1/platform/providers",
+    plans: "/api/v1/platform/plans",
+    planDetail: (id: string) => `/api/v1/platform/plans/${id}`,
   },
 } as const;

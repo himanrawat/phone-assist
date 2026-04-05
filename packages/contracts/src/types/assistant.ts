@@ -7,12 +7,20 @@ export interface AssistantSettings {
 }
 
 export interface AssistantResponse {
-  data: AssistantSettings;
+  data: AssistantSettings | null;
+  allowedLanguages: string[];
+  planLanguagePool: string[];
+  maxSelectableLanguages: number;
+  multilingualAvailable: boolean;
   tenant: { id: string; name: string; slug: string };
 }
 
 export interface AssistantSaveResponse {
   success: true;
   data: AssistantSettings;
+  allowedLanguages: string[];
+  planLanguagePool: string[];
+  maxSelectableLanguages: number;
+  multilingualAvailable: boolean;
   tenant: { id: string; name: string; slug: string };
 }

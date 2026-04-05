@@ -12,12 +12,16 @@ import {
   BarChart3Icon,
   ShieldCheckIcon,
   LogOutIcon,
-  ArrowLeftIcon,
+  SunIcon,
+  MoonIcon,
 } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Switch } from "@/components/ui/switch";
 
 export function PlatformSidebar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
 
   const navItems = [
     { title: "Dashboard", href: "/platform/dashboard", icon: LayoutDashboardIcon },
@@ -30,17 +34,19 @@ export function PlatformSidebar() {
   ];
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
+    <aside className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       {/* Header */}
-      <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-          <PhoneIcon className="size-4" />
+      <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-brand-green">
+          <PhoneIcon className="size-4 text-brand-forest" />
         </div>
         <div className="flex flex-col">
           <span className="font-heading text-sm font-semibold">
             Phone Assistant
           </span>
-          <span className="text-xs text-sidebar-foreground/50">Platform</span>
+          <span className="label-tech !text-[10px] !tracking-[0.15em] text-brand-green">
+            Platform
+          </span>
         </div>
       </div>
 
@@ -53,36 +59,37 @@ export function PlatformSidebar() {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-150 ${
                     isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      ? "bg-sidebar-primary/10 text-sidebar-primary font-medium border-l-2 border-sidebar-primary"
                       : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                   }`}
                 >
-                  <item.icon className="size-4" />
+                  <item.icon className={`size-4 ${isActive ? "text-sidebar-primary" : ""}`} />
                   {item.title}
                 </Link>
               </li>
             );
           })}
         </ul>
-
-        {/* Back to admin link */}
-        <div className="mt-6 border-t border-sidebar-border pt-3">
-          <Link
-            href="/admin/dashboard"
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-          >
-            <ArrowLeftIcon className="size-4" />
-            Tenant Admin
-          </Link>
-        </div>
       </nav>
 
-      {/* Footer - User */}
-      <div className="border-t border-sidebar-border p-3">
+      {/* Footer */}
+      <div className="border-t border-sidebar-border p-3 space-y-3">
+        {/* Theme toggle */}
+        <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+          <SunIcon className="size-4 text-sidebar-foreground/60" />
+          <Switch
+            checked={theme === "dark"}
+            onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+            size="sm"
+          />
+          <MoonIcon className="size-4 text-sidebar-foreground/60" />
+        </div>
+
+        {/* User info */}
         <div className="flex items-center gap-3">
-          <div className="flex size-8 items-center justify-center rounded-full bg-sidebar-accent text-xs font-medium">
+          <div className="flex size-8 items-center justify-center rounded-full bg-brand-green/15 text-xs font-semibold text-brand-green">
             {user?.name?.charAt(0)?.toUpperCase() ?? "?"}
           </div>
           <div className="flex-1 overflow-hidden">
@@ -93,7 +100,8 @@ export function PlatformSidebar() {
           </div>
           <button
             onClick={() => logout()}
-            className="rounded-md p-1.5 text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            className="rounded-md p-1.5 text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-brand-green"
+            title="Sign out"
           >
             <LogOutIcon className="size-4" />
           </button>

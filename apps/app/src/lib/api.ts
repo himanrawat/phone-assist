@@ -1,6 +1,7 @@
 import type {
   AuthMeResponse,
   AuthLoginResponse,
+  AuthRegisterResponse,
   CallListResponse,
   CallDetailResponse,
   BrandProfileResponse,
@@ -22,6 +23,13 @@ import type {
   ProviderConfigResponse,
   ProviderConfigSaveResponse,
   WorkingHour,
+  PlanListResponse,
+  PlanSaveResponse,
+  TenantBillingResponse,
+  TenantUsageResponse,
+  TenantSubscriptionResponse,
+  TenantLanguageAccessResponse,
+  UpgradeRequestResponse,
 } from "@phone-assistant/contracts";
 import { API } from "@phone-assistant/contracts";
 
@@ -90,8 +98,8 @@ export const auth = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  register: (data: { email: string; password: string; name: string }) =>
-    request<AuthLoginResponse>(API.auth.register, {
+  register: (data: { email: string; password: string; name: string; businessName: string; timezone?: string }) =>
+    request<AuthRegisterResponse>(API.auth.register, {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -99,7 +107,7 @@ export const auth = {
     request<{ success: true }>(API.auth.logout, { method: "POST" }),
   me: () => request<AuthMeResponse>(API.auth.me),
   switchTenant: (tenantId: string) =>
-    request<{ success: true; data: { tenant: unknown } }>(
+    request<{ success: true; data: { tenant: unknown; subscription: unknown; entitlements: unknown; allowedLanguages: string[]; usage: unknown } }>(
       API.auth.switchTenant,
       { method: "POST", body: JSON.stringify({ tenantId }) }
     ),
@@ -134,7 +142,7 @@ export const brand = {
 // Assistant
 export const assistant = {
   get: () => request<AssistantResponse>(API.admin.assistant),
-  update: (data: { primaryLanguage: string; multilingualEnabled: boolean }) =>
+  update: (data: { primaryLanguage: string; multilingualEnabled: boolean; allowedLanguages?: string[] }) =>
     request<AssistantSaveResponse>(API.admin.assistant, {
       method: "PUT",
       body: JSON.stringify(data),
@@ -188,6 +196,16 @@ export const phoneNumbers = {
     }),
 };
 
+export const adminBilling = {
+  get: () => request<TenantBillingResponse>(API.admin.billing),
+  usage: () => request<TenantUsageResponse>(API.admin.usage),
+  requestUpgrade: (data: { requestedPlanId?: string; message?: string }) =>
+    request<UpgradeRequestResponse>(API.admin.upgradeRequest, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
 // Platform - Tenants
 export const platformTenants = {
   list: () => request<TenantListResponse>(API.platform.tenants),
@@ -214,7 +232,7 @@ export const platformTenants = {
     request<AssistantResponse>(API.platform.tenantAssistant(id)),
   updateAssistant: (
     id: string,
-    data: { primaryLanguage: string; multilingualEnabled: boolean }
+    data: { primaryLanguage: string; multilingualEnabled: boolean; allowedLanguages?: string[] }
   ) =>
     request<AssistantSaveResponse>(API.platform.tenantAssistant(id), {
       method: "PUT",
@@ -225,6 +243,34 @@ export const platformTenants = {
       method: "PUT",
       body: JSON.stringify(data),
     }),
+  subscription: (id: string) =>
+    request<TenantBillingResponse>(API.platform.tenantSubscription(id)),
+  updateSubscription: (
+    id: string,
+    data: { planId: string; status?: string; trialDays?: number }
+  ) =>
+    request<TenantSubscriptionResponse>(API.platform.tenantSubscription(id), {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  languages: (id: string) =>
+    request<TenantLanguageAccessResponse>(API.platform.tenantLanguages(id)),
+  updateLanguages: (id: string, data: { languages: string[] }) =>
+    request<TenantSubscriptionResponse>(API.platform.tenantLanguages(id), {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  addAdmin: (
+    id: string,
+    data: { email: string; name: string; password?: string }
+  ) =>
+    request<{ success: true; data: { id: string; email: string; name: string } }>(
+      API.platform.tenantAdmins(id),
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    ),
 };
 
 // Platform - Providers
@@ -232,6 +278,20 @@ export const platformProviders = {
   get: () => request<ProviderConfigResponse>(API.platform.providers),
   update: (data: Record<string, unknown>) =>
     request<ProviderConfigSaveResponse>(API.platform.providers, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+};
+
+export const platformPlans = {
+  list: () => request<PlanListResponse>(API.platform.plans),
+  create: (data: Record<string, unknown>) =>
+    request<PlanSaveResponse>(API.platform.plans, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: Record<string, unknown>) =>
+    request<PlanSaveResponse>(API.platform.planDetail(id), {
       method: "PUT",
       body: JSON.stringify(data),
     }),

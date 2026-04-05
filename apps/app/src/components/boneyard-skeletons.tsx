@@ -45,7 +45,7 @@ function BoneyardCanvas({
   return (
     <div
       className={cn(
-        "bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.12),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.34),transparent_38%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.18),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.05),transparent_38%)]",
+        "bg-[radial-gradient(circle_at_top_left,rgba(0,237,100,0.08),transparent_22%),linear-gradient(180deg,rgba(0,30,43,0.06),transparent_38%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(0,237,100,0.12),transparent_26%),linear-gradient(180deg,rgba(0,237,100,0.03),transparent_38%)]",
         className
       )}
     >
@@ -64,11 +64,11 @@ function BoneyardPanel({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[28px] border border-border/70 bg-card/85 shadow-[0_24px_80px_-48px_rgba(98,61,181,0.45)]",
+        "relative overflow-hidden rounded-2xl border border-border/70 bg-card/85 shadow-[0_24px_80px_-48px_rgba(0,30,43,0.35)]",
         className
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_45%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(0,237,100,0.04),transparent_45%)]" />
       <div className="relative">{children}</div>
     </div>
   );
@@ -77,7 +77,7 @@ function BoneyardPanel({
 function BoneyardStamp({ label }: Readonly<{ label: string }>) {
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-      <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-primary">
+      <span className="flex size-5 items-center justify-center rounded-full bg-brand-green/15 text-brand-green">
         <PhoneIcon className="size-3" />
       </span>
       {label}
@@ -162,10 +162,10 @@ function BoneyardSidebar({
   const navIds = createBoneyardIds("nav", 7);
 
   return (
-    <aside className="hidden h-full w-64 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
-      <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-          <PhoneIcon className="size-4" />
+    <aside className="hidden h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
+      <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-brand-green">
+          <PhoneIcon className="size-4 text-brand-forest" />
         </div>
         <div className="space-y-1">
           <Skeleton className="h-3 w-24 bg-sidebar-accent" />
@@ -177,7 +177,7 @@ function BoneyardSidebar({
         {navIds.map((navId, navIndex) => (
           <div
             key={navId}
-            className="flex items-center gap-3 rounded-2xl border border-sidebar-border/70 bg-sidebar-accent/40 px-3 py-3"
+            className="flex items-center gap-3 rounded-lg border border-sidebar-border/50 bg-sidebar-accent/30 px-3 py-3"
           >
             <Skeleton className="size-4 rounded-full bg-sidebar-accent-foreground/20" />
             <Skeleton
@@ -190,8 +190,8 @@ function BoneyardSidebar({
         ))}
       </div>
       <div className="border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-3 rounded-2xl bg-sidebar-accent/40 px-3 py-3">
-          <Skeleton className="size-8 rounded-full bg-sidebar-accent-foreground/20" />
+        <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/30 px-3 py-3">
+          <Skeleton className="size-8 rounded-full bg-brand-green/15" />
           <div className="space-y-2">
             <Skeleton className="h-3 w-24 bg-sidebar-accent-foreground/25" />
             <Skeleton className="h-2.5 w-16 bg-sidebar-accent-foreground/15" />
@@ -253,7 +253,7 @@ export function BoneyardAuthSkeleton() {
       <BoneyardPanel className="w-full max-w-md p-8">
         <div className="space-y-6">
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <div className="flex size-14 items-center justify-center rounded-2xl bg-brand-green/15 text-brand-green">
               <PhoneIcon className="size-6" />
             </div>
             <BoneyardStamp label="Access boneyard" />
@@ -268,7 +268,7 @@ export function BoneyardAuthSkeleton() {
                 <Skeleton className="h-11 w-full rounded-2xl" />
               </div>
             ))}
-            <Skeleton className="h-11 w-full rounded-2xl" />
+            <Skeleton className="h-11 w-full rounded-full" />
           </div>
         </div>
       </BoneyardPanel>

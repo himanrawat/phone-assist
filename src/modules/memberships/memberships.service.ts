@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { db } from '../../shared/config/database.js';
 import { tenantInvitations, tenantMembers, users } from '../../shared/db/schema.js';
+import { assertTenantCanInviteRole } from '../plans/plans.service.js';
 
 export async function listTenantMembers(tenantId: string) {
   return db
@@ -22,6 +23,8 @@ export async function createInvitation(input: {
   role: 'tenant_admin' | 'tenant_manager' | 'tenant_viewer';
   invitedBy: string;
 }) {
+  await assertTenantCanInviteRole(input.tenantId, input.role);
+
   const [invitation] = await db
     .insert(tenantInvitations)
     .values({

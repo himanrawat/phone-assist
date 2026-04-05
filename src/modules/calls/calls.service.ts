@@ -20,6 +20,7 @@ import {
   getAssistantConfig,
   getBrandProfile,
 } from './calls.queries.js';
+import { recordCompletedCallUsage } from '../plans/plans.service.js';
 
 export interface CallState {
   callId: string;
@@ -34,6 +35,7 @@ export interface CallState {
   systemPrompt: string;
   primaryLanguage: string;
   multilingualEnabled: boolean;
+  allowedLanguages: string[];
   activeLanguage: string;
   voiceId: string;
   greetingMessage?: string;
@@ -86,6 +88,7 @@ type SystemPromptConfig = {
   systemPrompt?: string | null;
   primaryLanguage?: string | null;
   multilingualEnabled?: boolean;
+  allowedLanguages?: string[] | null;
   contactName?: string | null;
   isVip: boolean;
   brand?: CallBrandProfile | null;
@@ -96,6 +99,17 @@ function isDefined<T>(value: T | null | undefined): value is T {
 }
 
 function buildBasePrompt(config: SystemPromptConfig, primaryLanguage: string) {
+  const allowedLanguages = Array.from(
+    new Set(
+      (config.allowedLanguages ?? [])
+        .map((language) => normalizeLanguageTag(language))
+        .filter(Boolean)
+    )
+  );
+  const supportedLanguageList = allowedLanguages.length > 0
+    ? allowedLanguages.join(', ')
+    : primaryLanguage;
+
   return [
     `You are ${config.personaName}, an AI phone assistant.`,
     `Your tone is ${config.personaTone}.`,
@@ -105,7 +119,7 @@ function buildBasePrompt(config: SystemPromptConfig, primaryLanguage: string) {
     'Ask at most one follow-up question, and do not repeat information the caller already heard.',
     `The primary language for this call is ${primaryLanguage}.`,
     config.multilingualEnabled
-      ? 'If the caller speaks or requests another language, reply in that same language and stay consistent until they switch again.'
+      ? `Only use these supported languages for this tenant: ${supportedLanguageList}. If the caller speaks or requests one of them, reply in that same language and stay consistent until they switch again. If they ask for an unsupported language, continue in ${primaryLanguage} and explain the supported options briefly.`
       : `Always respond in ${primaryLanguage}. If needed, politely explain that you can continue in ${primaryLanguage}.`,
   ];
 }
@@ -242,6 +256,7 @@ export const callService = {
     const responseLanguage = resolveActiveCallLanguage({
       primaryLanguage: state.primaryLanguage,
       multilingualEnabled: state.multilingualEnabled,
+      allowedLanguages: state.allowedLanguages,
       activeLanguage: state.activeLanguage,
       detectedLanguage: options?.detectedLanguage,
     });
@@ -255,6 +270,7 @@ export const callService = {
         content: buildTurnLanguagePrompt({
           primaryLanguage: state.primaryLanguage,
           multilingualEnabled: state.multilingualEnabled,
+          allowedLanguages: state.allowedLanguages,
           activeLanguage: state.activeLanguage,
           detectedLanguage: options?.detectedLanguage,
         }),
@@ -300,6 +316,7 @@ export const callService = {
       .join('\n');
 
     await completeCallRecord(callId, { durationSec, transcript });
+    await recordCompletedCallUsage(state.tenantId, durationSec);
 
     await postCallQueue.add('process', { callId }, {
       jobId: callId,

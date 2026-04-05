@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../../shared/config/database.js';
 import { phoneNumbers } from '../../shared/db/schema.js';
+import { assertTenantCanManagePhoneNumber } from '../plans/plans.service.js';
 
 export async function listPhoneNumbers(tenantId: string) {
   return db.select().from(phoneNumbers).where(eq(phoneNumbers.tenantId, tenantId));
@@ -13,6 +14,8 @@ export async function upsertPhoneNumber(tenantId: string, input: {
   forwardingNumber?: string;
   isActive: boolean;
 }) {
+  await assertTenantCanManagePhoneNumber(tenantId, input.number);
+
   await db
     .insert(phoneNumbers)
     .values({

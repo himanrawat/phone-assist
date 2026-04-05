@@ -13,7 +13,9 @@ import { membershipRoutes } from '../modules/memberships/memberships.routes.js';
 import { workingHoursRoutes } from '../modules/working-hours/hours.routes.js';
 import { phoneNumberRoutes } from '../modules/phone-numbers/numbers.routes.js';
 import { contactRoutes } from '../modules/contacts/contacts.routes.js';
+import { planRoutes } from '../modules/plans/plans.routes.js';
 import { providerConfigService } from '../modules/providers/providers.service.js';
+import { ensureDefaultPlans } from '../modules/plans/plans.service.js';
 import { db } from '../shared/config/database.js';
 import { redis } from '../shared/config/redis.js';
 import { env } from '../shared/config/env.js';
@@ -85,6 +87,7 @@ export async function buildServer() {
   });
 
   await providerConfigService.load();
+  await ensureDefaultPlans();
 
   await fastify.register(authRoutes);
   await fastify.register(twilioWebhookRoutes);
@@ -98,6 +101,7 @@ export async function buildServer() {
   await fastify.register(workingHoursRoutes);
   await fastify.register(phoneNumberRoutes);
   await fastify.register(contactRoutes);
+  await fastify.register(planRoutes);
   await registerErrorPlugin(fastify);
 
   return fastify;

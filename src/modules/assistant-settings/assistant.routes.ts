@@ -13,8 +13,15 @@ export async function assistantRoutes(fastify: FastifyInstance) {
     preHandler: [requireAuth, requireTenantRole('tenant_admin', 'tenant_manager', 'tenant_viewer')],
   }, async (request, reply) => {
     const tenant = request.tenant!;
-    const data = await getAssistantSettings(tenant.id);
-    reply.send({ data, tenant });
+    const result = await getAssistantSettings(tenant.id);
+    reply.send({
+      data: result.settings,
+      allowedLanguages: result.allowedLanguages,
+      planLanguagePool: result.planLanguagePool,
+      maxSelectableLanguages: result.maxSelectableLanguages,
+      multilingualAvailable: result.multilingualAvailable,
+      tenant,
+    });
   });
 
   fastify.put('/api/v1/admin/assistant', {
@@ -22,8 +29,16 @@ export async function assistantRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const tenant = request.tenant!;
     const body = assistantSettingsSchema.parse(request.body);
-    const data = await updateAssistantSettings(tenant.id, body);
-    reply.send({ success: true, data, tenant });
+    const result = await updateAssistantSettings(tenant.id, body);
+    reply.send({
+      success: true,
+      data: result.settings,
+      allowedLanguages: result.allowedLanguages,
+      planLanguagePool: result.planLanguagePool,
+      maxSelectableLanguages: result.maxSelectableLanguages,
+      multilingualAvailable: result.multilingualAvailable,
+      tenant,
+    });
   });
 
   fastify.get('/api/v1/platform/tenants/:tenantId/assistant', {
@@ -34,8 +49,15 @@ export async function assistantRoutes(fastify: FastifyInstance) {
     if (!tenant) {
       throw notFound('Tenant not found.');
     }
-    const data = await getAssistantSettings(tenantId);
-    reply.send({ data, tenant });
+    const result = await getAssistantSettings(tenantId);
+    reply.send({
+      data: result.settings,
+      allowedLanguages: result.allowedLanguages,
+      planLanguagePool: result.planLanguagePool,
+      maxSelectableLanguages: result.maxSelectableLanguages,
+      multilingualAvailable: result.multilingualAvailable,
+      tenant,
+    });
   });
 
   fastify.put('/api/v1/platform/tenants/:tenantId/assistant', {
@@ -47,7 +69,15 @@ export async function assistantRoutes(fastify: FastifyInstance) {
       throw notFound('Tenant not found.');
     }
     const body = assistantSettingsSchema.parse(request.body);
-    const data = await updateAssistantSettings(tenantId, body);
-    reply.send({ success: true, data, tenant });
+    const result = await updateAssistantSettings(tenantId, body);
+    reply.send({
+      success: true,
+      data: result.settings,
+      allowedLanguages: result.allowedLanguages,
+      planLanguagePool: result.planLanguagePool,
+      maxSelectableLanguages: result.maxSelectableLanguages,
+      multilingualAvailable: result.multilingualAvailable,
+      tenant,
+    });
   });
 }

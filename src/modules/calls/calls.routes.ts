@@ -8,6 +8,7 @@ import { providerRegistry } from '../providers/registry.js';
 import { createAssistantDefaultsForBrand } from '../../lib/brand-profile.js';
 import { createOutboundCallSchema } from './calls.schemas.js';
 import { callService } from './calls.service.js';
+import { assertTenantCanStartCall, getTenantBillingContext } from '../plans/plans.service.js';
 import {
   getCallByIdForTenant,
   getCallMessages,
@@ -91,14 +92,21 @@ export async function callRoutes(fastify: FastifyInstance) {
     }
 
     const tenant = request.tenant!;
+    await assertTenantCanStartCall(tenant.id, { direction: 'outbound' });
+    const billingContext = await getTenantBillingContext(tenant.id);
     const assistantConfig = await callService.getAssistantConfig(tenant.id);
     const brandProfile = await callService.getBrandProfile(tenant.id);
     const brandAssistantDefaults = brandProfile
       ? createAssistantDefaultsForBrand(brandProfile)
       : null;
     const contact = await callService.findOrCreateContact(tenant.id, to);
-    const primaryLanguage = normalizeLanguageTag(assistantConfig?.primaryLanguage);
-    const multilingualEnabled = assistantConfig?.multilingualEnabled ?? false;
+    const allowedLanguages = billingContext.allowedLanguages;
+    const requestedPrimaryLanguage = normalizeLanguageTag(assistantConfig?.primaryLanguage);
+    const primaryLanguage = allowedLanguages.includes(requestedPrimaryLanguage)
+      ? requestedPrimaryLanguage
+      : allowedLanguages[0] ?? requestedPrimaryLanguage;
+    const multilingualEnabled = billingContext.entitlements.multilingualSupport
+      && (assistantConfig?.multilingualEnabled ?? false);
     const voiceId = assistantConfig?.voiceId || 'hannah';
     const greetingMessage = assistantConfig?.greetingMessage || brandAssistantDefaults?.greetingMessage;
 
@@ -121,6 +129,7 @@ export async function callRoutes(fastify: FastifyInstance) {
       systemPrompt: assistantConfig?.systemPrompt,
       primaryLanguage,
       multilingualEnabled,
+      allowedLanguages,
       contactName: contact.name,
       isVip: contact.isVip,
       brand: brandProfile,
@@ -162,6 +171,7 @@ export async function callRoutes(fastify: FastifyInstance) {
       systemPrompt,
       primaryLanguage,
       multilingualEnabled,
+      allowedLanguages,
       activeLanguage: primaryLanguage,
       voiceId,
       greetingMessage,

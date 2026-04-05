@@ -1,8 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { eq } from 'drizzle-orm';
 import { buildServer } from '../app/build-server.js';
+import { assertTenantCanStartCall } from '../modules/plans/plans.service.js';
 import { providerRegistry } from '../modules/providers/registry.js';
+import { db } from '../shared/config/database.js';
+import { calls } from '../shared/db/schema.js';
 import {
   addTenantMembership,
   createAssistant,
@@ -12,6 +16,7 @@ import {
   createPhoneNumber,
   createTenant,
   createUser,
+  assignSubscriptionBySlug,
   ensureTestDatabase,
   extractCookie,
   jsonHeaders,
@@ -75,10 +80,15 @@ describe('Phase 0/1/2 integration coverage', () => {
 
       expect(me.statusCode).toBe(200);
       const mePayload = me.json() as {
-        data: { tenant: { id: string } | null; memberships: Array<{ id: string }> };
+        data: {
+          tenant: { id: string } | null;
+          memberships: Array<{ id: string }>;
+          subscription: { plan: { slug: string } } | null;
+        };
       };
       expect(mePayload.data.memberships).toHaveLength(2);
       expect(mePayload.data.tenant?.id).toBe(tenantA.id);
+      expect(mePayload.data.subscription?.plan.slug).toBe('starter');
 
       const switched = await server.inject({
         method: 'POST',
@@ -171,6 +181,7 @@ describe('Phase 0/1/2 integration coverage', () => {
     await createAssistant(tenant.id);
     await createBrandProfile(tenant.id);
     await createPhoneNumber(tenant.id, '+15551112222');
+    await assignSubscriptionBySlug(tenant.id, 'growth');
 
     const originalTelephony = providerRegistry.telephony;
     providerRegistry.telephony = () => ({
@@ -214,6 +225,37 @@ describe('Phase 0/1/2 integration coverage', () => {
       providerRegistry.telephony = originalTelephony;
       await server.close();
     }
+  });
+
+  test('stale active calls are closed before concurrency is enforced', async () => {
+    const tenant = await createTenant({ name: 'Stale Call Co', slug: 'stale-call-co' });
+    const startedAt = new Date(Date.now() - (13 * 60 * 60 * 1000));
+
+    const [staleCall] = await db.insert(calls).values({
+      tenantId: tenant.id,
+      direction: 'inbound',
+      status: 'ringing',
+      callerNumber: '+15550001111',
+      dialedNumber: '+15550002222',
+      provider: 'twilio',
+      providerCallSid: 'CA_STALE_TEST',
+      startedAt,
+    }).returning();
+
+    const billingContext = await assertTenantCanStartCall(tenant.id, { direction: 'inbound' });
+    expect(billingContext.subscription.status).toBe('trial');
+
+    const [updatedCall] = await db
+      .select({
+        status: calls.status,
+        endedAt: calls.endedAt,
+      })
+      .from(calls)
+      .where(eq(calls.id, staleCall.id))
+      .limit(1);
+
+    expect(updatedCall?.status).toBe('failed');
+    expect(updatedCall?.endedAt).not.toBeNull();
   });
 
   test('brand and assistant routes use the active tenant context', async () => {
@@ -269,8 +311,8 @@ describe('Phase 0/1/2 integration coverage', () => {
         url: '/api/v1/admin/assistant',
         headers: jsonHeaders(cookie),
         payload: {
-          primaryLanguage: 'es',
-          multilingualEnabled: true,
+          primaryLanguage: 'en',
+          multilingualEnabled: false,
         },
       });
 
@@ -283,7 +325,207 @@ describe('Phase 0/1/2 integration coverage', () => {
       });
 
       expect(assistantGet.statusCode).toBe(200);
-      expect((assistantGet.json() as { data: { primaryLanguage: string } }).data.primaryLanguage).toBe('es');
+      const assistantPayload = assistantGet.json() as {
+        data: { primaryLanguage: string };
+        allowedLanguages: string[];
+      };
+      expect(assistantPayload.data.primaryLanguage).toBe('en');
+      expect(assistantPayload.allowedLanguages).toEqual(['en']);
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('website registration creates tenant admin membership and subscription context', async () => {
+    const server = await buildServer();
+
+    try {
+      const register = await server.inject({
+        method: 'POST',
+        url: '/api/v1/auth/register',
+        headers: jsonHeaders(),
+        payload: {
+          name: 'Owner One',
+          email: 'owner@example.com',
+          password: 'phone-assistant-dev',
+          businessName: 'Owner Clinic',
+        },
+      });
+
+      expect(register.statusCode).toBe(200);
+      const payload = register.json() as {
+        data: {
+          tenant: { role: string; slug: string } | null;
+          memberships: Array<{ role: string }>;
+          subscription: { plan: { slug: string } } | null;
+          allowedLanguages: string[];
+        };
+      };
+
+      expect(payload.data.tenant?.role).toBe('tenant_admin');
+      expect(payload.data.memberships).toHaveLength(1);
+      expect(payload.data.subscription?.plan.slug).toBe('starter');
+      expect(payload.data.allowedLanguages).toEqual(['en']);
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('tenant users cannot access platform routes', async () => {
+    const tenant = await createTenant({ name: 'Tenant Access', slug: 'tenant-access' });
+    const { user, password } = await createUser({ email: 'tenant-user@example.com' });
+    await addTenantMembership({ userId: user.id, tenantId: tenant.id, role: 'tenant_admin' });
+
+    const server = await buildServer();
+    try {
+      const login = await server.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        headers: jsonHeaders(),
+        payload: { email: user.email, password },
+      });
+      const cookie = extractCookie(login.headers['set-cookie']);
+
+      const platform = await server.inject({
+        method: 'GET',
+        url: '/api/v1/platform/providers',
+        headers: { cookie },
+      });
+
+      expect(platform.statusCode).toBe(403);
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('super admin can create tenant with first admin and add another admin later', async () => {
+    const { user, password } = await createUser({
+      email: 'superadmin@example.com',
+      platformRole: 'platform_super_admin',
+    });
+
+    const server = await buildServer();
+    try {
+      const login = await server.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        headers: jsonHeaders(),
+        payload: { email: user.email, password },
+      });
+      const cookie = extractCookie(login.headers['set-cookie']);
+
+      const create = await server.inject({
+        method: 'POST',
+        url: '/api/v1/platform/tenants',
+        headers: jsonHeaders(cookie),
+        payload: {
+          name: 'Tenant Created',
+          slug: 'tenant-created',
+          timezone: 'UTC',
+          admin: {
+            name: 'First Admin',
+            email: 'first-admin@example.com',
+            password: 'phone-assistant-dev',
+          },
+        },
+      });
+
+      expect(create.statusCode).toBe(200);
+      const tenantId = (create.json() as { data: { id: string } }).data.id;
+      await assignSubscriptionBySlug(tenantId, 'growth');
+
+      const addAdmin = await server.inject({
+        method: 'POST',
+        url: `/api/v1/platform/tenants/${tenantId}/admins`,
+        headers: jsonHeaders(cookie),
+        payload: {
+          name: 'Second Admin',
+          email: 'second-admin@example.com',
+          password: 'phone-assistant-dev',
+        },
+      });
+
+      expect(addAdmin.statusCode).toBe(200);
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('assistant and resource limits enforce purchased entitlements', async () => {
+    const tenant = await createTenant({ name: 'Limit Co', slug: 'limit-co' });
+    const { user, password } = await createUser({ email: 'limit@example.com' });
+    await addTenantMembership({ userId: user.id, tenantId: tenant.id, role: 'tenant_admin' });
+
+    const server = await buildServer();
+    try {
+      const login = await server.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        headers: jsonHeaders(),
+        payload: { email: user.email, password },
+      });
+      const cookie = extractCookie(login.headers['set-cookie']);
+
+      const invalidLanguage = await server.inject({
+        method: 'PUT',
+        url: '/api/v1/admin/assistant',
+        headers: jsonHeaders(cookie),
+        payload: {
+          primaryLanguage: 'es',
+          multilingualEnabled: true,
+        },
+      });
+
+      expect(invalidLanguage.statusCode).toBe(400);
+
+      const firstNumber = await server.inject({
+        method: 'PUT',
+        url: '/api/v1/admin/phone-numbers',
+        headers: jsonHeaders(cookie),
+        payload: {
+          number: '+15551110000',
+          provider: 'twilio',
+          isActive: true,
+        },
+      });
+
+      expect(firstNumber.statusCode).toBe(200);
+
+      const secondNumber = await server.inject({
+        method: 'PUT',
+        url: '/api/v1/admin/phone-numbers',
+        headers: jsonHeaders(cookie),
+        payload: {
+          number: '+15551110001',
+          provider: 'twilio',
+          isActive: true,
+        },
+      });
+
+      expect(secondNumber.statusCode).toBe(409);
+
+      const inviteManager = await server.inject({
+        method: 'POST',
+        url: '/api/v1/admin/team/invite',
+        headers: jsonHeaders(cookie),
+        payload: { email: 'manager@example.com', role: 'tenant_manager' },
+      });
+      const inviteViewer = await server.inject({
+        method: 'POST',
+        url: '/api/v1/admin/team/invite',
+        headers: jsonHeaders(cookie),
+        payload: { email: 'viewer@example.com', role: 'tenant_viewer' },
+      });
+      const inviteExtra = await server.inject({
+        method: 'POST',
+        url: '/api/v1/admin/team/invite',
+        headers: jsonHeaders(cookie),
+        payload: { email: 'extra@example.com', role: 'tenant_viewer' },
+      });
+
+      expect(inviteManager.statusCode).toBe(200);
+      expect(inviteViewer.statusCode).toBe(200);
+      expect(inviteExtra.statusCode).toBe(409);
     } finally {
       await server.close();
     }

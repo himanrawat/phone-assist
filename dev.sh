@@ -32,6 +32,7 @@ NC='\033[0m' # No Color
 
 # ── Flags ─────────────────────────────────────────────────────────
 SKIP_NGROK=false
+NGROK_URL=""
 for arg in "$@"; do
   case "$arg" in
     --no-ngrok) SKIP_NGROK=true ;;
@@ -66,6 +67,39 @@ run_with_label() {
   "$@" 2>&1 | while IFS= read -r line; do
     echo -e "${color}[${label}]${NC} $line"
   done
+}
+
+get_ngrok_url() {
+  local response
+  local url
+
+  response="$(curl -sS http://127.0.0.1:4040/api/tunnels 2>/dev/null || true)"
+  if [ -z "$response" ]; then
+    return 1
+  fi
+
+  url="$(printf '%s' "$response" | tr -d '\n' | sed -nE 's/.*"public_url":"(https:[^"]+)".*/\1/p' | head -n 1)"
+  if [ -z "$url" ]; then
+    return 1
+  fi
+
+  printf '%s\n' "$url"
+}
+
+wait_for_ngrok_url() {
+  local attempts="${1:-20}"
+  local delay="${2:-1}"
+  local url=""
+
+  for _ in $(seq 1 "$attempts"); do
+    if url="$(get_ngrok_url)"; then
+      printf '%s\n' "$url"
+      return 0
+    fi
+    sleep "$delay"
+  done
+
+  return 1
 }
 
 # ── Banner ────────────────────────────────────────────────────────
@@ -127,9 +161,21 @@ PIDS+=($!)
 
 # ── 5. ngrok ──────────────────────────────────────────────────────
 if [ "$SKIP_NGROK" = false ]; then
-  echo -e "${YELLOW}▸ Starting ngrok tunnel (:3000)...${NC}"
-  run_with_label "ngrok" "$YELLOW" ngrok http 3000 --log stdout --log-level info &
-  PIDS+=($!)
+  if command -v ngrok >/dev/null 2>&1; then
+    echo -e "${YELLOW}▸ Starting ngrok tunnel (:3000)...${NC}"
+    run_with_label "ngrok" "$YELLOW" ngrok http 3000 --log stdout --log-level info &
+    PIDS+=($!)
+
+    echo -e "${YELLOW}[ngrok]${NC} Waiting for public URL..."
+    if NGROK_URL="$(wait_for_ngrok_url 20 1)"; then
+      echo -e "${GREEN}[ngrok]${NC} ✓ Public URL: ${NGROK_URL}"
+    else
+      echo -e "${YELLOW}[ngrok]${NC} ! ngrok started, but the public URL could not be fetched from http://127.0.0.1:4040/api/tunnels"
+    fi
+  else
+    echo -e "${RED}[ngrok]${NC} ✗ ngrok is not installed or not on your PATH"
+    SKIP_NGROK=true
+  fi
 else
   echo -e "${YELLOW}▸ Skipping ngrok (--no-ngrok flag)${NC}"
 fi
@@ -144,7 +190,12 @@ echo -e "  ${BOLD}Backend${NC}   →  http://localhost:3000"
 echo -e "  ${BOLD}App${NC}       →  http://localhost:3001"
 echo -e "  ${BOLD}Web${NC}       →  http://localhost:3003"
 if [ "$SKIP_NGROK" = false ]; then
-  echo -e "  ${BOLD}ngrok${NC}     →  check [ngrok] logs above for URL"
+  if [ -n "$NGROK_URL" ]; then
+    echo -e "  ${BOLD}ngrok${NC}     →  ${NGROK_URL}"
+    echo -e "  ${BOLD}Webhook${NC}   →  ${NGROK_URL}/webhooks/twilio/voice"
+  else
+    echo -e "  ${BOLD}ngrok${NC}     →  URL unavailable (check [ngrok] logs above)"
+  fi
 fi
 echo -e "  ${BOLD}Postgres${NC}  →  localhost:5432"
 echo -e "  ${BOLD}Redis${NC}     →  localhost:6379"
